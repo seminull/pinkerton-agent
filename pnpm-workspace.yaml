@@ -1,0 +1,12 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Produces portable, isolated production packages with `pnpm deploy`.
+injectWorkspacePackages: true
+
+# pnpm 11 blocks dependency lifecycle scripts unless they're reviewed and named
+# here. esbuild's postinstall is how it selects its platform-specific binary —
+# without it both Vite and tsx fail to start.
+allowBuilds:
+  esbuild: true

@@ -1,0 +1,11 @@
+// sequelize-cli artifacts live under server/sequelize/ (config, models,
+// migrations, seeders). Without this, root-level `sequelize-cli` runs invent
+// ./migrations at the repo root and quietly write there instead.
+const path = require("path");
+
+module.exports = {
+  config: path.resolve("server", "sequelize", "config", "config.cjs"),
+  "models-path": path.resolve("server", "sequelize", "models"),
+  "migrations-path": path.resolve("server", "sequelize", "migrations"),
+  "seeders-path": path.resolve("server", "sequelize", "seeders"),
+};

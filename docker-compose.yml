@@ -1,0 +1,46 @@
+# Dev stack. Postgres is published to the host with default credentials so
+# psql, sequelize-cli, and the API all work with zero configuration. A
+# docker-compose.prod.yml will later layer on top of this: backend rebound to
+# loopback, a real password required, memory ceilings applied.
+
+# Container logs are capped everywhere: three 10 MB json files per service
+# instead of one unbounded stream that eventually eats the disk.
+x-logging: &capped-logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  postgres:
+    container_name: pinkerton-postgres
+    image: postgres:17-alpine
+    # The data volume is version-named so a major-version bump stays an
+    # explicit dump/restore instead of an in-place surprise that leaves the
+    # cluster unreadable by the new binary.
+    volumes:
+      - postgres-data-17:/var/lib/postgresql/data/
+    # Credentials come from .env (see .env.example); the defaults keep a fresh
+    # clone zero-config.
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pinkerton}
+      POSTGRES_USER: ${POSTGRES_USER:-pinkerton}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pinkerton}
+    ports:
+      # 5434 on the host so this never collides with a system Postgres (5432)
+      # or another project's container.
+      - 5434:5432
+    restart: unless-stopped
+    # $$ defers expansion to the container shell, so the check reads the live
+    # container env rather than compose-time interpolation.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    <<: *capped-logging
+
+volumes:
+  postgres-data-17:

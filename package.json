@@ -1,0 +1,36 @@
+{
+  "name": "pinkertonagent-app",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.17.0",
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "concurrently": "^9.2.1",
+    "sequelize-cli": "^6.6.5",
+    "tsx": "^4.20.6",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.12",
+    "hono": "^4.12.23",
+    "pg": "^8.21.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.8"
+  },
+  "scripts": {
+    "dev": "pnpm run services:up && pnpm run db:migrate && concurrently -n api,web -c cyan,magenta \"pnpm run dev:api\" \"pnpm run dev:web\"",
+    "dev:api": "tsx watch --env-file-if-exists=.env server/index.ts",
+    "dev:web": "pnpm --filter @pinkertonagent/web dev",
+    "services:up": "docker compose up -d --wait postgres",
+    "services:down": "docker compose stop postgres",
+    "services:status": "docker compose ps",
+    "db:migrate": "sequelize-cli db:migrate",
+    "db:migrate:undo": "sequelize-cli db:migrate:undo",
+    "db:seed": "sequelize-cli db:seed:all",
+    "typecheck": "pnpm run typecheck:api && pnpm --filter @pinkertonagent/web typecheck",
+    "typecheck:api": "tsc --noEmit",
+    "lint": "pnpm --filter @pinkertonagent/web lint",
+    "build:web": "pnpm --filter @pinkertonagent/web build",
+    "check": "pnpm run typecheck && pnpm run lint"
+  }
+}
