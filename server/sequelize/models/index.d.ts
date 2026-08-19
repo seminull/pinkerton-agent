@@ -63,11 +63,29 @@ export interface ActivityAttributes {
   updatedAt: Date;
 }
 
+export interface CommunicationAttributes {
+  id: string;
+  contactId: string;
+  channel: "sms" | "call" | "email";
+  direction: "incoming" | "outgoing";
+  occurredAt: Date;
+  body: string | null;
+  counterpartyAddress: string;
+  durationSeconds: number | null;
+  deviceId: string;
+  externalId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export type ContactInstance = Model<ContactAttributes> & ContactAttributes;
 export type ListingInstance = Model<ListingAttributes> & ListingAttributes;
 export type ActivityInstance = Model<ActivityAttributes> & ActivityAttributes;
+export type CommunicationInstance = Model<CommunicationAttributes> &
+  CommunicationAttributes;
 
 export const sequelize: Sequelize;
 export const Contact: ModelStatic<ContactInstance>;
 export const Listing: ModelStatic<ListingInstance>;
 export const Activity: ModelStatic<ActivityInstance>;
+export const Communication: ModelStatic<CommunicationInstance>;

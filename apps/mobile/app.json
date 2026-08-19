@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "Pinkerton Companion",
+    "slug": "pinkerton-companion",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "platforms": [
+      "android"
+    ],
+    "scheme": "pinkerton",
+    "android": {
+      "package": "com.pinkertonagent.companion",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.READ_CONTACTS",
+        "android.permission.READ_SMS",
+        "android.permission.RECEIVE_SMS"
+      ],
+      "blockedPermissions": [
+        "android.permission.WRITE_CONTACTS"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#182318",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-background-task",
+      "expo-secure-store",
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow Pinkerton Companion to match opted-in CRM contacts to phone numbers on this device."
+        }
+      ],
+      "expo-splash-screen"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "70c3c8da-2ce0-43a8-9dc9-7fadb3dde6f2"
+      }
+    }
+  }
+}

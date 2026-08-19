@@ -36,6 +36,8 @@ Vite dev server together. To run the halves separately, use `pnpm dev:api` and
 | Command                 | Does                                             |
 | ----------------------- | ------------------------------------------------ |
 | `pnpm dev`              | Services + migrations + API and web              |
+| `pnpm dev:mobile`       | Metro for the installed Android development client |
+| `pnpm mobile:android`   | Build and install the Android development client  |
 | `pnpm check`            | Typecheck both halves, then lint                 |
 | `pnpm db:migrate`       | Apply pending migrations                         |
 | `pnpm db:migrate:undo`  | Roll back the last migration                     |
@@ -68,10 +70,14 @@ GET    /api/activities      ?contactId= &listingId= &type= &open=true
 POST   /api/activities
 PATCH  /api/activities/:id
 DELETE /api/activities/:id
+
+GET    /api/communications  ?contactId= &channel= &limit= &offset=
+POST   /api/communications/sync
 ```
 
 Prices are **integer cents** on the wire and in the database. `?open=true` on
 activities returns everything not yet completed — the follow-up queue.
+Communication endpoints require `Authorization: Bearer <MOBILE_SYNC_TOKEN>`.
 
 ## Schema
 
@@ -93,3 +99,7 @@ local projects.
 No auth, no tests, no API Dockerfile, no CI. See [PLAN.md](PLAN.md) for the
 schema, packages, and integrations this is designed to grow into, and
 [CLAUDE.md](CLAUDE.md) for the conventions to follow when adding to it.
+
+The Android companion app lives in [`apps/mobile`](apps/mobile). Its README
+explains why SMS capture uses an Expo development build rather than stock Expo
+Go, and how to install it over wireless ADB.

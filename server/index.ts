@@ -8,6 +8,8 @@ import { sequelize } from "./sequelize/models";
 import contactRoutes from "./routes/contacts.routes";
 import listingRoutes from "./routes/listings.routes";
 import activityRoutes from "./routes/activities.routes";
+import communicationRoutes from "./routes/communications.routes";
+import mlsRoutes from "./routes/mls.routes";
 
 const port = parseInt(process.env.PORT ?? "", 10) || 3040;
 
@@ -84,6 +86,10 @@ app.get("/api/health", async (c) => {
 app.route("/api/contacts", contactRoutes);
 app.route("/api/listings", listingRoutes);
 app.route("/api/activities", activityRoutes);
+app.route("/api/communications", communicationRoutes);
+// Read-only passthrough to the MLS feed. Not backed by a table yet — see the
+// Test tab and server/mls/bridge.ts.
+app.route("/api/mls", mlsRoutes);
 
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`Running at http://localhost:${info.port}`);

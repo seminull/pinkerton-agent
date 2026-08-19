@@ -113,6 +113,51 @@ export default function ContactDetail() {
         </Grid>
       </Card>
 
+      <Title order={4}>Communications</Title>
+      {contact.communications && contact.communications.length > 0 ? (
+        <Card withBorder padding={0}>
+          <Table.ScrollContainer minWidth={680}>
+            <Table verticalSpacing="sm">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>When</Table.Th>
+                  <Table.Th>Channel</Table.Th>
+                  <Table.Th>Direction</Table.Th>
+                  <Table.Th>Message</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {contact.communications.map((communication) => (
+                  <Table.Tr key={communication.id}>
+                    <Table.Td>
+                      {new Date(communication.occurredAt).toLocaleString()}
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge variant="light">
+                        {communication.channel.toUpperCase()}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>{humanize(communication.direction)}</Table.Td>
+                    <Table.Td maw={480}>
+                      <Text size="sm" lineClamp={2}>
+                        {communication.body ??
+                          (communication.durationSeconds !== null
+                            ? `${communication.durationSeconds} seconds`
+                            : "—")}
+                      </Text>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
+        </Card>
+      ) : (
+        <Text c="dimmed" size="sm">
+          No synced communications for this contact.
+        </Text>
+      )}
+
       <Title order={4}>Listings</Title>
       {contact.listings && contact.listings.length > 0 ? (
         <Card withBorder padding={0}>

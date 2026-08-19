@@ -1,12 +1,20 @@
 import { AppShell, Burger, Group, NavLink, Text, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconAddressBook, IconHome, IconLayoutDashboard } from "@tabler/icons-react";
+import {
+  IconAddressBook,
+  IconFlask,
+  IconHome,
+  IconLayoutDashboard,
+} from "@tabler/icons-react";
 import { Link, Outlet, useLocation } from "react-router";
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: IconLayoutDashboard },
   { to: "/contacts", label: "Contacts", icon: IconAddressBook },
   { to: "/listings", label: "Listings", icon: IconHome },
+  // Scratch space for integrations that aren't product yet. Last in the list so
+  // it reads as the workbench it is rather than as a feature.
+  { to: "/test", label: "Test", icon: IconFlask },
 ];
 
 export default function RootLayout() {

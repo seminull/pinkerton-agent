@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { Op, type WhereOptions } from "sequelize";
-import { Contact, Listing } from "../sequelize/models";
+import { Communication, Contact, Listing } from "../sequelize/models";
 import {
   apiError,
   parsePage,
@@ -82,7 +82,16 @@ app.get("/", async (c) => {
 app.get("/:id", async (c) => {
   const id = requireUuid(c.req.param("id"));
   const contact = await Contact.findByPk(id, {
-    include: [{ model: Listing, as: "listings" }],
+    include: [
+      { model: Listing, as: "listings" },
+      {
+        model: Communication,
+        as: "communications",
+        separate: true,
+        limit: 50,
+        order: [["occurredAt", "DESC"]],
+      },
+    ],
   });
   if (!contact) throw apiError(404, "contact_not_found");
   return c.json({ contact });

@@ -25,6 +25,7 @@ export interface Contact {
   createdAt: string;
   updatedAt: string;
   listings?: Listing[];
+  communications?: Communication[];
 }
 
 export type ListingStatus =
@@ -84,7 +85,91 @@ export interface Activity {
   listing?: Listing | null;
 }
 
+export type CommunicationChannel = "sms" | "call" | "email";
+export type CommunicationDirection = "incoming" | "outgoing";
+
+export interface Communication {
+  id: string;
+  contactId: string;
+  channel: CommunicationChannel;
+  direction: CommunicationDirection;
+  occurredAt: string;
+  body: string | null;
+  counterpartyAddress: string;
+  durationSeconds: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ListResponse<T> {
   results: T[];
   total: number;
+}
+
+// --- MLS feed -------------------------------------------------------------
+// These come from the MLS via Bridge, not from our database, so they carry RESO
+// Data Dictionary semantics rather than our column names. Nothing here has an
+// `id` — `listingKey` is the MLS's immutable identifier and the only safe key
+// to sync on. (`listingId` is the human-facing MLS number, and it can change.)
+
+export interface MlsListing {
+  listingKey: string;
+  listingId: string | null;
+  status: string | null;
+  /** Converted from RESO's dollar amount by the API, to match our cents rule. */
+  listPriceCents: number | null;
+  /** The dollars Bridge actually sent, kept so the conversion stays visible. */
+  listPriceDollars: number | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  county: string | null;
+  /** The join key to Big District's appraisal data. Fill rate varies by MLS. */
+  parcelNumber: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  livingAreaSqft: number | null;
+  yearBuilt: number | null;
+  propertyType: string | null;
+  modificationTimestamp: string | null;
+  photosCount: number | null;
+}
+
+export interface MlsStatus {
+  base: string;
+  dataset: string;
+  /** Using the shared public token rather than our own credential. */
+  isDemoToken: boolean;
+  /** The records are synthetic. Independent of the token — see bridgeConfig. */
+  isDemoData: boolean;
+  tokenHint: string;
+  targetCounties: string[];
+  reachable: boolean;
+  error: string | null;
+}
+
+/** The OData the API generated, echoed back so the UI can show it. */
+export interface MlsQueryEcho {
+  filter: string;
+  orderby: string;
+  url: string;
+}
+
+export interface MlsSearchResponse {
+  results: MlsListing[];
+  total: number;
+  query: MlsQueryEcho;
+}
+
+export interface MlsFieldCoverage {
+  name: string;
+  filled: number;
+  percent: number;
+  example: string | null;
+}
+
+export interface MlsCoverageResponse {
+  sample: number;
+  fields: MlsFieldCoverage[];
 }
