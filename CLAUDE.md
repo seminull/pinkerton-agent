@@ -102,6 +102,8 @@ pnpm check                # typecheck + lint — run before calling work done
 
 ## Things not built yet
 
-No auth, no tests, no Dockerfile for the API, no production compose file, no CI.
+No auth, no tests, no CI. (A `Dockerfile` and `docker-compose.prod.yml` exist —
+see "Production" in `readme.md` — but with no auth, a deployment is only as
+private as whatever sits in front of it.)
 These are known gaps, not oversights — see `PLAN.md` for the order they're meant
 to land in. Don't quietly add a dependency for one of them without raising it.

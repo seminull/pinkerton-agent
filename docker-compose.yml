@@ -1,7 +1,8 @@
 # Dev stack. Postgres is published to the host with default credentials so
-# psql, sequelize-cli, and the API all work with zero configuration. A
-# docker-compose.prod.yml will later layer on top of this: backend rebound to
-# loopback, a real password required, memory ceilings applied.
+# psql, sequelize-cli, and the API all work with zero configuration.
+# docker-compose.prod.yml layers on top of this for a server: Postgres rebound
+# to loopback, a real password required, memory ceilings applied, and the API
+# and web containers added.
 
 # Container logs are capped everywhere: three 10 MB json files per service
 # instead of one unbounded stream that eventually eats the disk.

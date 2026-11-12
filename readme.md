@@ -88,8 +88,45 @@ Schema changes go through `sequelize-cli` migrations under
 API 3040, web 5174, Postgres 5434 — all non-default so this runs beside other
 local projects.
 
+## Production
+
+The host needs Docker and nothing else — no Node, no pnpm. One command builds
+the images from the working tree, applies pending migrations, and starts
+everything:
+
+```bash
+cp .env.example .env    # first time only — then set a strong POSTGRES_PASSWORD
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --wait
+```
+
+Re-run the same command to deploy a new version after `git pull`. It is
+idempotent, and a failed migration stops the deploy before the running API is
+replaced.
+
+| Container            | Role                                             | Host port        |
+| -------------------- | ------------------------------------------------ | ---------------- |
+| `pinkerton-web`      | nginx: serves the built client, proxies `/api`   | `127.0.0.1:8090` |
+| `pinkerton-api`      | The Hono server                                  | none             |
+| `pinkerton-migrate`  | One-shot `sequelize-cli db:migrate`, then exits  | none             |
+| `pinkerton-postgres` | Database                                         | `127.0.0.1:5434` |
+
+Everything binds to loopback, so the stack is unreachable from the network
+until something on the host is pointed at the web port — a tunnel or a TLS
+reverse proxy. Set `WEB_PORT` in `.env` if 8090 is taken.
+
+**There is no auth yet.** Anyone who can reach the web port can read, edit, and
+delete every record, so whatever publishes it must also gate it (an identity-
+aware proxy, a VPN, an IP allowlist) until the app has logins of its own.
+
+Demo data is not loaded by a deploy. To seed a fresh database on purpose:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  run --rm migrate node_modules/.bin/sequelize-cli db:seed:all
+```
+
 ## Not built yet
 
-No auth, no tests, no API Dockerfile, no CI. See [PLAN.md](PLAN.md) for the
+No auth, no tests, no CI. See [PLAN.md](PLAN.md) for the
 schema, packages, and integrations this is designed to grow into, and
 [CLAUDE.md](CLAUDE.md) for the conventions to follow when adding to it.

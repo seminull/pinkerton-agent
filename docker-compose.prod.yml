@@ -1,0 +1,114 @@
+# Production overlay. Layers on the dev base:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --wait
+#
+# That one command is the whole deploy and is safe to re-run: it rebuilds the
+# images from the working tree, applies pending migrations, then replaces the
+# API and web containers.
+#
+# Nothing here listens on a public interface. Every published port is bound to
+# 127.0.0.1, so whatever fronts this host (a tunnel, a TLS proxy) is the only
+# way in — and it should point at the web port, never at the API directly.
+
+x-logging: &capped-logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+# Service name and in-network port, not localhost:5434 — that is the host-side
+# address from .env and means nothing inside a container. Declared once because
+# the migration run and the API must never disagree about which database.
+x-database-url: &database-url
+  DATABASE_URL: postgres://${POSTGRES_USER:-pinkerton}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pinkerton}
+
+services:
+  postgres:
+    # Loopback-only: Docker publishes past host firewalls like ufw, so the
+    # bind address is the real access control. Kept published at all so psql
+    # and pg_dump still work from the host.
+    ports: !override
+      - "127.0.0.1:5434:5432"
+    environment:
+      # The dev default password is public knowledge (it's in this repo), so
+      # production refuses to start on it.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?production needs a strong POSTGRES_PASSWORD in .env}
+    mem_limit: 1g
+
+  # One-shot: applies pending migrations and exits. The API waits on its exit
+  # code, so a failed migration stops the deploy with the old containers still
+  # serving instead of starting new code against an old schema.
+  migrate:
+    container_name: pinkerton-migrate
+    build:
+      context: .
+      target: api
+    image: pinkerton-agent-api:prod
+    command: ["node_modules/.bin/sequelize-cli", "db:migrate"]
+    environment:
+      <<: *database-url
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # A finished job is a finished job — never resurrect it.
+    restart: "no"
+    <<: *capped-logging
+
+  api:
+    container_name: pinkerton-api
+    build:
+      context: .
+      target: api
+    image: pinkerton-agent-api:prod
+    # No published port: only the web container talks to it, over the compose
+    # network.
+    environment:
+      <<: *database-url
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    # Node as PID 1 ignores SIGTERM unless the app installs a handler; a real
+    # init forwards it, so `stop` takes a moment instead of the 10 s kill.
+    init: true
+    restart: unless-stopped
+    # Same endpoint an uptime monitor would use — it is only 200 when Postgres
+    # is actually reachable. node rather than curl/wget: it's already in the
+    # image, alpine's wget is busybox, and curl isn't installed.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3040/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 15s
+      timeout: 6s
+      retries: 5
+      start_period: 20s
+    mem_limit: 512m
+    <<: *capped-logging
+
+  web:
+    container_name: pinkerton-web
+    build:
+      context: .
+      target: web
+    image: pinkerton-agent-web:prod
+    # The only way into the stack. 8090 by default so it can share a host with
+    # another app already holding 80; override WEB_PORT in .env if it clashes.
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8090}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      # 127.0.0.1, not localhost: busybox wget tries ::1 first and this
+      # listener is IPv4-only.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    mem_limit: 128m
+    <<: *capped-logging
