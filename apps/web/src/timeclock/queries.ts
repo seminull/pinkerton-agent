@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, queryString } from "../api/client";
-import type { ListResponse, TimeEntry, TimeSummary } from "../api/types";
+import type { ListResponse, TimeDayTotals, TimeEntry, TimeSummary } from "../api/types";
 
 export const timeKeys = {
   all: ["time-entries"] as const,
   active: ["time-entries", "active"] as const,
-  list: (offset: number, limit: number) => ["time-entries", "list", offset, limit] as const,
+  list: (offset: number, limit: number, from?: string, to?: string) =>
+    ["time-entries", "list", offset, limit, from, to] as const,
+  daily: (from: string, to: string) => ["time-entries", "daily", from, to] as const,
   summary: (from?: string, to?: string) => ["time-entries", "summary", from, to] as const,
 };
 
@@ -20,15 +22,40 @@ export const useActiveEntry = () =>
     refetchOnWindowFocus: true,
   });
 
-export const useTimeEntries = (offset: number, limit: number) =>
+export interface TimeRange {
+  from: string;
+  to: string;
+}
+
+/** A page of completed entries, newest first, optionally limited to a range. */
+export const useTimeEntries = (offset: number, limit: number, range?: TimeRange) =>
   useQuery({
-    queryKey: timeKeys.list(offset, limit),
+    queryKey: timeKeys.list(offset, limit, range?.from, range?.to),
     queryFn: () =>
-      api.get<ListResponse<TimeEntry>>(`/time-entries${queryString({ offset, limit })}`),
+      api.get<ListResponse<TimeEntry>>(
+        `/time-entries${queryString({ offset, limit, ...range })}`
+      ),
+  });
+
+// The browser's IANA zone ("America/Chicago"). Sent with the per-day request
+// because only the browser knows where its user's midnight falls.
+const TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+/** Per-day totals across a range, for the calendar's cells. */
+export const useDailyTotals = (range: TimeRange) =>
+  useQuery({
+    queryKey: timeKeys.daily(range.from, range.to),
+    queryFn: () =>
+      api.get<{ days: TimeDayTotals[] }>(
+        `/time-entries/daily${queryString({ ...range, tz: TIME_ZONE })}`
+      ),
+    // Paging between months keeps the previous month's numbers on screen until
+    // the new ones arrive, instead of blanking every cell for a moment.
+    placeholderData: (previous) => previous,
   });
 
 /** Totals for a range, or for everything when no range is given. */
-export const useTimeSummary = (range?: { from: string; to: string }) =>
+export const useTimeSummary = (range?: TimeRange) =>
   useQuery({
     queryKey: timeKeys.summary(range?.from, range?.to),
     queryFn: () =>

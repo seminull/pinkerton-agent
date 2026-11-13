@@ -3,7 +3,7 @@ import { Op, QueryTypes, UniqueConstraintError, type WhereOptions } from "sequel
 import type { AuthEnv } from "../auth";
 import { apiError, parsePage, pickFields, requireUuid } from "../http";
 import { sequelize, TimeEntry } from "../sequelize/models";
-import type { TimeSummary } from "../types";
+import type { TimeDayTotals, TimeSummary } from "../types";
 
 // Mounted at /api/time-entries. The Time Clock: start a task, stop it, and the
 // span is recorded.
@@ -160,6 +160,73 @@ app.get("/summary", async (c) => {
     }
   );
   return c.json({ summary: row });
+});
+
+// An IANA zone name ("America/Chicago"), checked by asking the runtime whether
+// it knows it. Postgres would reject a bad one too, but as a 500; this makes it
+// the 400 it is.
+const parseTimeZone = (raw: string | undefined): string => {
+  if (!raw) return "UTC";
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: raw });
+    return raw;
+  } catch {
+    throw apiError(400, "invalid_time_zone");
+  }
+};
+
+// GET /api/time-entries/daily?from=&to=&tz=
+// One row of totals per calendar day that has completed entries — what the
+// calendar view paints into its cells. Days with nothing recorded are simply
+// absent.
+//
+// "Which day" depends on where the user is: 11pm Tuesday in Dallas is already
+// Wednesday in UTC. So the browser sends its zone and the grouping happens in
+// it. An entry belongs to the day it STARTED on, the same rule the range
+// filter and Today's totals use, so a task that runs past midnight is counted
+// once, on the day it began.
+app.get("/daily", async (c) => {
+  const query = c.req.query();
+  parseRange(query);
+  const from = query.from ? new Date(query.from) : null;
+  const to = query.to ? new Date(query.to) : null;
+
+  const days = await sequelize.query<TimeDayTotals>(
+    `SELECT
+       to_char(day, 'YYYY-MM-DD') AS day,
+       COALESCE(SUM(minutes) FILTER (
+         WHERE category <> :breakCategory AND "workType" <> :assistantWorkType), 0)::int
+         AS "workMinutes",
+       COALESCE(SUM(minutes) FILTER (WHERE category = :breakCategory), 0)::int
+         AS "breakMinutes",
+       COALESCE(SUM(minutes) FILTER (WHERE "workType" = :assistantWorkType), 0)::int
+         AS "assistantMinutes",
+       COUNT(*)::int AS "entryCount"
+     FROM (
+       SELECT category, "workType",
+              ("startedAt" AT TIME ZONE :tz)::date AS day,
+              GREATEST(0, ROUND(EXTRACT(EPOCH FROM ("endedAt" - "startedAt")) / 60)) AS minutes
+         FROM time_entries
+        WHERE "userId" = :userId
+          AND "endedAt" IS NOT NULL
+          AND (CAST(:from AS timestamptz) IS NULL OR "startedAt" >= :from)
+          AND (CAST(:to AS timestamptz) IS NULL OR "startedAt" < :to)
+     ) AS completed
+     GROUP BY day
+     ORDER BY day`,
+    {
+      type: QueryTypes.SELECT,
+      replacements: {
+        userId: c.get("auth").user.id,
+        from,
+        to,
+        tz: parseTimeZone(query.tz),
+        breakCategory: BREAK_CATEGORY,
+        assistantWorkType: ASSISTANT_WORK_TYPE,
+      },
+    }
+  );
+  return c.json({ days });
 });
 
 // POST /api/time-entries/start  { category, task, reference?, workType, notes? }

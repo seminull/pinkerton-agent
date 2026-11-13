@@ -138,3 +138,9 @@ export interface TimeSummary {
   assistantMinutes: number;
   entryCount: number;
 }
+
+/** One day's totals from GET /api/time-entries/daily. */
+export interface TimeDayTotals extends TimeSummary {
+  /** The local calendar day, YYYY-MM-DD. */
+  day: string;
+}

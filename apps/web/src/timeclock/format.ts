@@ -54,3 +54,18 @@ export const dayRange = (day: Date): { from: string; to: string } => {
   const end = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
   return { from: start.toISOString(), to: end.toISOString() };
 };
+
+/** "2026-11-12" -> a Date at local midnight of that day. */
+export const parseDay = (day: string): Date => {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(year!, month! - 1, date!);
+};
+
+/** "2026-11-12" -> "Thursday, November 12, 2026". */
+export const formatLongDay = (day: string): string =>
+  parseDay(day).toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });

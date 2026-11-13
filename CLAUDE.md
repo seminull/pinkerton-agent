@@ -53,7 +53,8 @@ apps/web/                Vite + React client (@pinkertonagent/web).
   src/api/               fetch wrapper and wire types.
   src/admin/             Users screen (admins only): create, edit, disable.
   src/motion/            PageStack: the shared page load-in animation.
-  src/timeclock/         Time Clock: start/stop task timer, history, CSV export.
+  src/timeclock/         Time Clock: Today tab (start/stop timer) and Calendar tab
+                         (month view of past days), CSV export.
   src/auth/              AuthProvider, the AuthGate around the router, the login page.
   src/<resource>/        Feature folder: queries.ts + components, colocated.
   src/routes/            Layout, error, 404, dashboard.

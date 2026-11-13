@@ -89,6 +89,7 @@ DELETE /api/activities/:id
 GET    /api/time-entries           ?from= &to= &limit= &offset=   completed, newest first
 GET    /api/time-entries/active    the running task, or null
 GET    /api/time-entries/summary   ?from= &to=   work / break / assistant minutes
+GET    /api/time-entries/daily     ?from= &to= &tz=   the same totals per calendar day
 POST   /api/time-entries/start     { category, task, reference?, workType, notes? }
 POST   /api/time-entries/stop
 DELETE /api/time-entries/:id
