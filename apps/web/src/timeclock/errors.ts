@@ -6,6 +6,7 @@ const ERROR_MESSAGES: Record<string, string> = {
     "A task is already running — it may have been started in another tab or on another device.",
   no_task_running: "That task was already stopped.",
   time_entry_not_found: "That entry was already deleted.",
+  task_still_running: "That task is still running — stop it before editing it.",
 };
 
 export const describeError = (error: unknown): string =>

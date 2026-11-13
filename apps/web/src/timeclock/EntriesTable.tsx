@@ -12,8 +12,9 @@ import {
   Text,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconTrash } from "@tabler/icons-react";
+import { IconPencil, IconTrash } from "@tabler/icons-react";
 import type { TimeEntry } from "../api/types";
+import EditEntryModal from "./EditEntryModal";
 import { describeError } from "./errors";
 import { entryMinutes, formatClockTime, formatDay } from "./format";
 import { useDeleteTimeEntry, useTimeEntries, type TimeRange } from "./queries";
@@ -27,7 +28,7 @@ interface Props {
   emptyText: string;
 }
 
-// The completed entries for one day, with delete. Shared by the Today tab and
+// The completed entries for one day, with edit and delete. Shared by the Today tab and
 // the Calendar tab's day view, so a day looks and behaves the same from either.
 //
 // There is no Date column: every row is from the day named in the heading above
@@ -35,6 +36,7 @@ interface Props {
 export default function EntriesTable({ range, emptyText }: Props) {
   const [page, setPage] = useState(1);
   const [deleting, setDeleting] = useState<TimeEntry | null>(null);
+  const [editing, setEditing] = useState<TimeEntry | null>(null);
   const entries = useTimeEntries((page - 1) * PAGE_SIZE, PAGE_SIZE, range);
   const remove = useDeleteTimeEntry();
 
@@ -86,12 +88,20 @@ export default function EntriesTable({ range, emptyText }: Props) {
                 <Table.Th>File ref.</Table.Th>
                 <Table.Th>Work type</Table.Th>
                 <Table.Th>Notes</Table.Th>
-                <Table.Th w={50} />
+                <Table.Th w={84} />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {entries.data.results.map((entry) => (
-                <Table.Tr key={entry.id}>
+                // The whole row opens the editor — the biggest possible target
+                // for the most common action. The pencil button at the end is
+                // the same action for keyboard and screen-reader users, who
+                // can't "click a row".
+                <Table.Tr
+                  key={entry.id}
+                  onClick={() => setEditing(entry)}
+                  style={{ cursor: "pointer" }}
+                >
                   <Table.Td style={{ whiteSpace: "nowrap" }}>
                     {formatClockTime(entry.startedAt)}
                   </Table.Td>
@@ -105,14 +115,32 @@ export default function EntriesTable({ range, emptyText }: Props) {
                   <Table.Td>{entry.workType}</Table.Td>
                   <Table.Td>{entry.notes ?? "—"}</Table.Td>
                   <Table.Td>
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      aria-label={`Delete ${entry.task}`}
-                      onClick={() => setDeleting(entry)}
-                    >
-                      <IconTrash size={16} />
-                    </ActionIcon>
+                    <Group gap={4} wrap="nowrap">
+                      <ActionIcon
+                        variant="subtle"
+                        aria-label={`Edit ${entry.task}`}
+                        onClick={(event) => {
+                          // Don't also fire the row's click underneath.
+                          event.stopPropagation();
+                          setEditing(entry);
+                        }}
+                      >
+                        <IconPencil size={16} />
+                      </ActionIcon>
+                      <ActionIcon
+                        variant="subtle"
+                        color="red"
+                        aria-label={`Delete ${entry.task}`}
+                        onClick={(event) => {
+                          // Without this, pressing Delete would open the
+                          // editor behind the confirmation.
+                          event.stopPropagation();
+                          setDeleting(entry);
+                        }}
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Group>
                   </Table.Td>
                 </Table.Tr>
               ))}
@@ -125,6 +153,12 @@ export default function EntriesTable({ range, emptyText }: Props) {
         <Group justify="center">
           <Pagination value={page} onChange={setPage} total={totalPages} />
         </Group>
+      )}
+
+      {/* Mounted only while editing, and keyed by the entry, so the form's
+          state is created fresh from that entry each time it opens. */}
+      {editing && (
+        <EditEntryModal key={editing.id} entry={editing} onClose={() => setEditing(null)} />
       )}
 
       {/* Deleting can't be undone and the row is someone's recorded time, so it

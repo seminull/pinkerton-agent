@@ -97,6 +97,29 @@ export const useStopTask = () => {
   });
 };
 
+export interface UpdateEntryInput {
+  id: string;
+  category: string;
+  task: string;
+  reference: string | null;
+  workType: string;
+  notes: string | null;
+  /** ISO instants. */
+  startedAt: string;
+  endedAt: string;
+}
+
+export const useUpdateTimeEntry = () => {
+  const invalidate = useInvalidateAll();
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateEntryInput) =>
+      api.patch<{ entry: TimeEntry }>(`/time-entries/${id}`, input),
+    // onSuccess, not onSettled: a failed save changed nothing on the server,
+    // and refetching would only make the table flicker behind the open form.
+    onSuccess: invalidate,
+  });
+};
+
 export const useDeleteTimeEntry = () => {
   const invalidate = useInvalidateAll();
   return useMutation({

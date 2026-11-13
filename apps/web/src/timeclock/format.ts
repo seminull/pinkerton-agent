@@ -69,3 +69,24 @@ export const formatLongDay = (day: string): string =>
     month: "long",
     day: "numeric",
   });
+
+// --- <input type="datetime-local"> ----------------------------------------
+// That input speaks "YYYY-MM-DDTHH:mm:ss" in the browser's LOCAL time, with no
+// zone. These two convert between that and the UTC instants the API uses.
+
+/** An ISO instant -> the local value a datetime-local input expects. */
+export const toLocalInput = (iso: string): string => {
+  const date = new Date(iso);
+  return `${formatDay(date)}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
+    date.getSeconds()
+  )}`;
+};
+
+/** A datetime-local value -> a Date, or null if the field is blank/invalid. */
+export const fromLocalInput = (value: string): Date | null => {
+  if (!value) return null;
+  // A zone-less date-time string is parsed as local time, which is exactly
+  // what the input means by it.
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};

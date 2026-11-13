@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { Op, QueryTypes, UniqueConstraintError, type WhereOptions } from "sequelize";
 import type { AuthEnv } from "../auth";
-import { apiError, parsePage, pickFields, requireUuid } from "../http";
+import { apiError, parsePage, pickFields, requireNonEmpty, requireUuid } from "../http";
 import { sequelize, TimeEntry } from "../sequelize/models";
 import type { TimeDayTotals, TimeSummary } from "../types";
 
@@ -12,9 +12,11 @@ import type { TimeDayTotals, TimeSummary } from "../types";
 // control — there is no route that takes a user id — so a new query added to
 // this file must carry `userId` too.
 //
-// Timestamps are the SERVER's clock, never a value from the request. A browser
-// clock can be wrong or deliberately changed, and a time study is only worth
-// anything if its start and stop times can't be typed in.
+// Start and Stop stamp the SERVER's clock, never a value from the request: a
+// browser clock can be wrong, and the recorded span should be what happened.
+// Times can still be corrected afterwards through PATCH — people forget to press
+// Stop — but that is a deliberate edit of a finished entry, with its own checks,
+// not something the timer itself accepts.
 
 const app = new Hono<AuthEnv>();
 
@@ -48,6 +50,12 @@ const BREAK_CATEGORY: (typeof CATEGORIES)[number] = "Lunch / Break";
 const ASSISTANT_WORK_TYPE: (typeof WORK_TYPES)[number] = "Assistant work (not my time)";
 
 const WRITABLE_ON_START = ["category", "task", "reference", "workType", "notes"] as const;
+const WRITABLE_ON_EDIT = [...WRITABLE_ON_START, "startedAt", "endedAt"] as const;
+
+// How far past "now" an edited end time may be. Not zero: the user's clock and
+// the server's are never exactly in step, and rejecting "now" as "the future"
+// because of a few seconds of drift would be maddening.
+const CLOCK_SKEW_MS = 5 * 60 * 1000;
 
 const MAX_TASK = 200;
 const MAX_REFERENCE = 100;
@@ -271,6 +279,78 @@ app.post("/stop", async (c) => {
   });
   if (!entry) throw apiError(409, "no_task_running");
   await entry.update({ endedAt: new Date() });
+  return c.json({ entry });
+});
+
+// PATCH /api/time-entries/:id
+//   { category?, task?, reference?, workType?, notes?, startedAt?, endedAt? }
+//
+// Corrects a finished entry: fix a typo, recategorise, or repair the times
+// after a forgotten Stop. Only completed entries — the running task is changed
+// by stopping it, and letting an edit set its end time would be a second,
+// subtly different way to stop the clock.
+app.patch("/:id", async (c) => {
+  const id = requireUuid(c.req.param("id"));
+  const values = pickFields(await c.req.json(), WRITABLE_ON_EDIT);
+  requireNonEmpty(values);
+
+  // Scoped by userId like every query here: someone else's entry is a 404.
+  const entry = await TimeEntry.findOne({ where: { id, userId: c.get("auth").user.id } });
+  if (!entry) throw apiError(404, "time_entry_not_found");
+  if (entry.endedAt === null) throw apiError(409, "task_still_running");
+
+  const details: Record<string, string> = {};
+  const changes: Record<string, unknown> = {};
+
+  if ("task" in values) {
+    const task = typeof values.task === "string" ? values.task.trim() : "";
+    if (!task || task.length > MAX_TASK) {
+      details.task = `Enter a task description (up to ${MAX_TASK} characters).`;
+    }
+    changes.task = task;
+  }
+  if ("category" in values) {
+    if (!CATEGORIES.includes(values.category as never)) details.category = "Choose a category.";
+    changes.category = values.category;
+  }
+  if ("workType" in values) {
+    if (!WORK_TYPES.includes(values.workType as never)) details.workType = "Choose a work type.";
+    changes.workType = values.workType;
+  }
+
+  // Times are validated as a pair even when only one is sent, against the
+  // stored value of the other — the rule is about the resulting span.
+  const time = (field: "startedAt" | "endedAt", current: Date): Date => {
+    if (!(field in values)) return current;
+    const raw = values[field];
+    const date = typeof raw === "string" ? new Date(raw) : new Date(Number.NaN);
+    if (Number.isNaN(date.getTime())) {
+      details[field] = "Enter a valid date and time.";
+      return current;
+    }
+    changes[field] = date;
+    return date;
+  };
+  const startedAt = time("startedAt", entry.startedAt);
+  const endedAt = time("endedAt", entry.endedAt);
+  if (!details.startedAt && !details.endedAt) {
+    if (endedAt.getTime() <= startedAt.getTime()) {
+      details.endedAt = "The end time must be after the start time.";
+    } else if (endedAt.getTime() > Date.now() + CLOCK_SKEW_MS) {
+      details.endedAt = "The end time can't be in the future.";
+    }
+  }
+
+  if (Object.keys(details).length > 0) throw apiError(422, "validation_failed", details);
+
+  // After the 422 above, so a length problem in an optional field (which
+  // throws its own) is only reached once everything else is known good.
+  if ("reference" in values) {
+    changes.reference = optionalText(values.reference, MAX_REFERENCE, "reference");
+  }
+  if ("notes" in values) changes.notes = optionalText(values.notes, MAX_NOTES, "notes");
+
+  await entry.update(changes as never);
   return c.json({ entry });
 });
 
