@@ -30,6 +30,7 @@ import { humanize } from "../format";
 import PageStack from "../motion/PageStack";
 import ContactFormModal from "./ContactFormModal";
 import ImportContactsModal from "./ImportContactsModal";
+import ImportMatrixCsvModal from "./ImportMatrixCsvModal";
 import { useContacts } from "./queries";
 
 const PAGE_SIZE = 25;
@@ -59,6 +60,7 @@ export default function Contacts() {
   const [editing, setEditing] = useState<Contact | undefined>();
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [matrixImportOpen, setMatrixImportOpen] = useState(false);
 
   // Gate the table on `data` rather than `isPending`: TanStack's result is a
   // discriminated union, and destructuring the flags into separate consts
@@ -86,6 +88,13 @@ export default function Contacts() {
       <Group justify="space-between">
         <Title order={2}>Contacts</Title>
         <Group gap="sm">
+          <Button
+            variant="light"
+            leftSection={<IconFileImport size={16} />}
+            onClick={() => setMatrixImportOpen(true)}
+          >
+            Import Matrix CSV
+          </Button>
           <Button
             variant="light"
             leftSection={<IconFileImport size={16} />}
@@ -241,6 +250,11 @@ export default function Contacts() {
       <ImportContactsModal
         opened={importOpen}
         onClose={() => setImportOpen(false)}
+        onImported={() => setPage(1)}
+      />
+      <ImportMatrixCsvModal
+        opened={matrixImportOpen}
+        onClose={() => setMatrixImportOpen(false)}
         onImported={() => setPage(1)}
       />
     </PageStack>

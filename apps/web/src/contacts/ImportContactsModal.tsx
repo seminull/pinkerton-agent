@@ -117,7 +117,10 @@ export default function ImportContactsModal({
     if (chosen.length === 0) return;
 
     try {
-      const result = await importContacts.mutateAsync(chosen);
+      const result = await importContacts.mutateAsync({
+        contacts: chosen,
+        source: "Phone import",
+      });
       const duplicateMessage =
         result.duplicates > 0
           ? ` ${result.duplicates.toLocaleString()} duplicate${result.duplicates === 1 ? " was" : "s were"} skipped.`
@@ -141,9 +144,6 @@ export default function ImportContactsModal({
 
   const allSelected = contacts.length > 0 && selected.size === contacts.length;
   const someSelected = selected.size > 0 && !allSelected;
-  const contactsWithoutIdentifiers = contacts.filter(
-    (contact) => !contact.email && !contact.phone
-  ).length;
 
   return (
     <Modal opened={opened} onClose={close} title="Import phone contacts" size="xl">
@@ -151,7 +151,7 @@ export default function ImportContactsModal({
         <Text size="sm" c="dimmed">
           Export contacts from your phone as a .vcf file, then choose which ones
           to add. Existing contacts with the same email or phone number will be
-          skipped.
+          skipped; contacts without either are matched by name.
         </Text>
 
         <Group>
@@ -186,15 +186,6 @@ export default function ImportContactsModal({
           <Alert color="yellow" title="Some cards weren’t included">
             {skipped.toLocaleString()} contact{skipped === 1 ? "" : "s"} did not
             have both a first and last name.
-          </Alert>
-        )}
-
-        {contactsWithoutIdentifiers > 0 && (
-          <Alert color="yellow" title="Some contacts can’t be duplicate-checked">
-            {contactsWithoutIdentifiers.toLocaleString()} contact
-            {contactsWithoutIdentifiers === 1 ? " has" : "s have"} no email or
-            phone number. {contactsWithoutIdentifiers === 1 ? "It" : "They"} can
-            still be imported, but a later import may create another copy.
           </Alert>
         )}
 

@@ -29,12 +29,21 @@ const REQUIRED_ON_CREATE = ["firstName", "lastName"] as const;
 
 const MAX_IMPORT_CONTACTS = 2000;
 const MAX_CONTACT_FIELD_LENGTH = 255;
+const MAX_CONTACT_NOTES_LENGTH = 100_000;
+
+type ImportSource = "Phone import" | "Matrix CSV";
 
 interface ImportedContact {
   firstName: string;
   lastName: string;
   email: string | null;
   phone: string | null;
+  notes: string | null;
+}
+
+interface ContactImport {
+  contacts: ImportedContact[];
+  source: ImportSource;
 }
 
 const importFieldError = (index: number, field: string, reason: string) =>
@@ -73,11 +82,27 @@ const optionalImportField = (
   return value.trim() || null;
 };
 
-const parseImportedContacts = (body: unknown): ImportedContact[] => {
+const optionalImportNotes = (
+  contact: Record<string, unknown>,
+  index: number
+): string | null => {
+  const value = contact.notes;
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string") {
+    throw importFieldError(index, "notes", "must_be_a_string");
+  }
+  if (value.trim().length > MAX_CONTACT_NOTES_LENGTH) {
+    throw importFieldError(index, "notes", "too_long");
+  }
+  return value.trim() || null;
+};
+
+const parseContactImport = (body: unknown): ContactImport => {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     throw apiError(400, "body_must_be_an_object");
   }
-  const contacts = (body as Record<string, unknown>).contacts;
+  const values = body as Record<string, unknown>;
+  const contacts = values.contacts;
   if (!Array.isArray(contacts) || contacts.length === 0) {
     throw apiError(422, "contacts_must_be_a_nonempty_array");
   }
@@ -86,19 +111,27 @@ const parseImportedContacts = (body: unknown): ImportedContact[] => {
       contacts: `maximum_${MAX_IMPORT_CONTACTS}`,
     });
   }
+  // Default keeps older API clients compatible; current clients always name
+  // the import so the source shown in the contact table is accurate.
+  const source = values.source ?? "Phone import";
+  if (source !== "Phone import" && source !== "Matrix CSV") {
+    throw apiError(422, "invalid_import_source");
+  }
 
-  return contacts.map((contact, index) => {
+  const parsedContacts = contacts.map((contact, index) => {
     if (typeof contact !== "object" || contact === null || Array.isArray(contact)) {
       throw importFieldError(index, "contact", "must_be_an_object");
     }
-    const values = contact as Record<string, unknown>;
+    const contactValues = contact as Record<string, unknown>;
     return {
-      firstName: requiredImportField(values, "firstName", index),
-      lastName: requiredImportField(values, "lastName", index),
-      email: optionalImportField(values, "email", index),
-      phone: optionalImportField(values, "phone", index),
+      firstName: requiredImportField(contactValues, "firstName", index),
+      lastName: requiredImportField(contactValues, "lastName", index),
+      email: optionalImportField(contactValues, "email", index),
+      phone: optionalImportField(contactValues, "phone", index),
+      notes: optionalImportNotes(contactValues, index),
     };
   });
+  return { contacts: parsedContacts, source };
 };
 
 const normalizeEmail = (email: string | null): string | null =>
@@ -112,6 +145,12 @@ const normalizePhone = (phone: string | null): string | null => {
   // `+1 312 ...` do not create two CRM records for the same person.
   return digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
 };
+
+const normalizeName = (firstName: string, lastName: string): string =>
+  `${firstName.trim().replace(/\s+/g, " ").toLowerCase()}\u0000${lastName
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()}`;
 
 // Sort allowlist. Only these names ever reach the ORDER BY clause, so a caller
 // can't order by (and thereby probe) an arbitrary column.
@@ -164,15 +203,20 @@ app.get("/", async (c) => {
   return c.json({ results: rows, total: count });
 });
 
-// POST /api/contacts/import — one all-or-nothing batch from a phone vCard.
-// Duplicate detection stays on the server because the browser only has one
-// paginated slice of the CRM and cannot make an authoritative decision.
+// POST /api/contacts/import — one all-or-nothing batch from a phone vCard or
+// Matrix CSV. Duplicate detection stays on the server because the browser only
+// has one paginated slice of the CRM and cannot make an authoritative decision.
 app.post("/import", async (c) => {
-  const importedContacts = parseImportedContacts(await c.req.json());
+  const contactImport = parseContactImport(await c.req.json());
 
   const result = await sequelize.transaction(async (transaction) => {
+    // Serialise imports so two simultaneous uploads cannot both inspect the
+    // same old snapshot and insert the same contacts.
+    await sequelize.query('LOCK TABLE "contacts" IN SHARE ROW EXCLUSIVE MODE', {
+      transaction,
+    });
     const existing = await Contact.findAll({
-      attributes: ["email", "phone"],
+      attributes: ["firstName", "lastName", "email", "phone"],
       transaction,
     });
     const emails = new Set(
@@ -185,18 +229,26 @@ app.post("/import", async (c) => {
         .map((contact) => normalizePhone(contact.phone))
         .filter((value): value is string => value !== null)
     );
+    const names = new Set(
+      existing.map((contact) => normalizeName(contact.firstName, contact.lastName))
+    );
 
     const contactsToCreate: Array<ImportedContact & {
       type: "buyer";
       stage: "new";
-      source: "Phone import";
+      source: ImportSource;
     }> = [];
     let duplicates = 0;
 
-    for (const contact of importedContacts) {
+    for (const contact of contactImport.contacts) {
       const email = normalizeEmail(contact.email);
       const phone = normalizePhone(contact.phone);
-      if ((email && emails.has(email)) || (phone && phones.has(phone))) {
+      const name = normalizeName(contact.firstName, contact.lastName);
+      if (
+        (email && emails.has(email)) ||
+        (phone && phones.has(phone)) ||
+        (!email && !phone && names.has(name))
+      ) {
         duplicates += 1;
         continue;
       }
@@ -205,12 +257,13 @@ app.post("/import", async (c) => {
         ...contact,
         type: "buyer",
         stage: "new",
-        source: "Phone import",
+        source: contactImport.source,
       });
       // Add identifiers immediately so duplicates inside the uploaded file are
       // skipped as well as duplicates already stored in Postgres.
       if (email) emails.add(email);
       if (phone) phones.add(phone);
+      if (!email && !phone) names.add(name);
     }
 
     if (contactsToCreate.length > 0) {

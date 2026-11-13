@@ -71,7 +71,7 @@ POST   /api/admin/users/:id/revoke-sessions
 
 GET    /api/contacts        ?q= &stage= &type= &sort= &dir= &limit= &offset=
 POST   /api/contacts
-POST   /api/contacts/import { contacts: [{ firstName, lastName, email?, phone? }] }
+POST   /api/contacts/import { source: "Phone import" | "Matrix CSV", contacts: [{ firstName, lastName, email?, phone?, notes? }] }
 GET    /api/contacts/:id    includes the contact's listings
 PATCH  /api/contacts/:id
 DELETE /api/contacts/:id

@@ -43,7 +43,13 @@ export type ContactInput = Partial<
 export type ImportedContactInput = Pick<
   Contact,
   "firstName" | "lastName" | "email" | "phone"
->;
+> &
+  Partial<Pick<Contact, "notes">>;
+
+export interface ImportContactsInput {
+  contacts: ImportedContactInput[];
+  source: "Phone import" | "Matrix CSV";
+}
 
 export interface ImportContactsResult {
   imported: number;
@@ -74,8 +80,8 @@ export const useUpdateContact = () => {
 export const useImportContacts = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (contacts: ImportedContactInput[]) =>
-      api.post<ImportContactsResult>("/contacts/import", { contacts }),
+    mutationFn: (input: ImportContactsInput) =>
+      api.post<ImportContactsResult>("/contacts/import", input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: contactKeys.all }),
   });
 };
