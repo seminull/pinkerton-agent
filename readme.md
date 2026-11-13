@@ -169,6 +169,55 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 Not built yet: password reset by email, a screen to change your own password,
 session review, and MFA.
 
+## Backups
+
+`scripts/backup.sh` dumps the database to `~/backups/pinkerton-agent` on the
+server (one `pinkerton-YYYYMMDD-HHMMSS.dump` per run), checks the dump can be
+read back, and prunes: everything from the last 30 days is kept, and never
+fewer than the newest 10.
+
+It runs in two places:
+
+- **Before every deploy.** `scripts/deploy.sh` takes a backup first and stops
+  if it fails, because a deploy runs migrations (`--no-backup` skips it).
+- **Daily**, from the deploy user's crontab:
+
+  ```
+  15 2 * * * cd ~/pinkerton-agent && scripts/backup.sh >> ~/backups/pinkerton-agent/backup.log 2>&1
+  ```
+
+`scripts/backup.sh --list` shows what exists.
+
+**These backups are on the same machine as the database.** They cover a bad
+migration, a bad deploy, or a mistaken command. They do not cover losing the
+disk or the server — that needs an off-site copy, which is not set up yet (the
+end of `scripts/backup.sh` marks where it goes).
+
+### Restoring
+
+Restoring replaces the live database with the dump's contents. Anything
+recorded after that dump was taken is lost, so take a fresh backup first unless
+the database is already unusable.
+
+```bash
+cd ~/pinkerton-agent
+scripts/backup.sh --list                       # pick a dump
+scripts/backup.sh                              # keep what is there now, just in case
+
+# Stop the app so nothing writes mid-restore; leave Postgres running.
+docker compose -f docker-compose.yml -f docker-compose.prod.yml stop web api
+
+docker exec -i pinkerton-postgres sh -c \
+  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner' \
+  < ~/backups/pinkerton-agent/pinkerton-YYYYMMDD-HHMMSS.dump
+
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --wait
+```
+
+To look inside a dump without touching the live database, restore it into a
+scratch database instead (`createdb` one in the container, point `-d` at it,
+drop it afterwards).
+
 ## Add with Zillow (BigDistrict integration)
 
 On the Listings page, **Add with Zillow** takes a Zillow home link and opens the

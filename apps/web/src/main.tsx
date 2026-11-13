@@ -15,6 +15,7 @@ import AuthGate from "./auth/AuthGate";
 import AuthProvider from "./auth/AuthProvider";
 import { routes } from "./router";
 import { theme } from "./theme";
+import UpdateBanner from "./update/UpdateBanner";
 
 const router = createBrowserRouter(routes);
 
@@ -34,6 +35,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider theme={theme} defaultColorScheme="auto">
         <Notifications position="top-right" />
+        {/* Outside the auth gate: a stale login screen is still a stale tab. */}
+        <UpdateBanner />
         {/* Inside QueryClientProvider because signing out clears the query
             cache; outside the router so the login screen answers every URL. */}
         {/* reducedMotion="user": someone who has asked their device to reduce

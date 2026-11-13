@@ -5,6 +5,7 @@
 #
 #   scripts/deploy.sh             pull the current branch, rebuild, restart
 #   scripts/deploy.sh --no-pull   rebuild and restart what is already checked out
+#   scripts/deploy.sh --no-backup skip the database backup taken before deploying
 #
 # Safe to re-run. It needs nothing on the host but Docker and git.
 #
@@ -30,12 +31,14 @@ compose() {
 }
 
 PULL=1
+BACKUP=1
 for arg in "$@"; do
   case "$arg" in
     --no-pull) PULL=0 ;;
+    --no-backup) BACKUP=0 ;;
     -h | --help)
       # Print the comment block at the top of this file as the help text.
-      sed -n '3,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '3,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -67,6 +70,21 @@ echo "==> Deploying $(git log --oneline -1)"
 if [[ -n "$(git status --porcelain)" ]]; then
   echo "    note: this checkout has uncommitted changes, and they are being deployed:"
   git status --short | sed 's/^/      /'
+fi
+
+# Back up before anything changes. A deploy runs migrations, and a migration
+# is the one step here that can damage data in a way redeploying the old code
+# doesn't undo. If the backup fails the deploy stops: shipping without one is
+# exactly the situation the backup exists for.
+#
+# Skipped on a first deploy, when there is no database container yet to dump.
+if [[ "$BACKUP" == 1 ]]; then
+  if docker inspect -f '{{.State.Running}}' pinkerton-postgres 2>/dev/null | grep -q true; then
+    echo "==> Backing up the database"
+    scripts/backup.sh
+  else
+    echo "==> No running database yet; skipping the pre-deploy backup"
+  fi
 fi
 
 compose up -d --build --wait

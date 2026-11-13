@@ -57,6 +57,7 @@ apps/web/                Vite + React client (@pinkertonagent/web).
   src/dashboard/         Dashboard charts, their validated colors, and the
                          aggregate query behind them (GET /api/dashboard).
   src/motion/            PageStack: the shared page load-in animation.
+  src/update/            Detects a newer deployed client; the "refresh" banner.
   src/timeclock/         Time Clock: Today tab (start/stop timer) and Calendar tab
                          (month view of past days), CSV export.
   src/auth/              AuthProvider, the AuthGate around the router, the login page.
