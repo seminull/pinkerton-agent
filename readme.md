@@ -78,6 +78,8 @@ DELETE /api/contacts/:id
 
 GET    /api/listings        ?q= &status= &city= &minPrice= &maxPrice= &sort= &dir=
 POST   /api/listings
+GET    /api/listings/lookup          { available } — is "Add with Zillow" set up
+POST   /api/listings/lookup { url }  a Zillow link -> a draft listing (nothing saved)
 GET    /api/listings/:id    includes the seller contact
 PATCH  /api/listings/:id
 DELETE /api/listings/:id
@@ -166,6 +168,26 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml \
 
 Not built yet: password reset by email, a screen to change your own password,
 session review, and MFA.
+
+## Add with Zillow (BigDistrict integration)
+
+On the Listings page, **Add with Zillow** takes a Zillow home link and opens the
+new-listing form pre-filled. This app does not contact Zillow, and neither does
+anything it calls: the link is sent to [BigDistrict](https://bigdistrict.app),
+which reads the address out of the link's own text and looks it up in county
+appraisal records.
+
+So what gets filled in is what the county knows — address, beds, baths, square
+footage, lot size, year built — and never the price, photos, description, or
+status, which exist only on the listing. BigDistrict covers Dallas, Tarrant,
+Collin, and Denton counties; for a home elsewhere only the address from the link
+is filled in. Nothing is saved until you review the form and press Create.
+
+To enable it, set `BIGDISTRICT_API_KEY` in `.env` to the secret BigDistrict has
+for this app (its `INTEGRATION_API_KEYS=pinkerton-agent:<secret>`), then
+redeploy. Without a key the button is hidden. BigDistrict logs every lookup on
+its side; this app stores nothing about them beyond the links it writes into
+the listing's notes.
 
 ## Schema
 

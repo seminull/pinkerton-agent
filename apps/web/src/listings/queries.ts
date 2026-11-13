@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, queryString } from "../api/client";
-import type { Listing, ListingStatus, ListResponse } from "../api/types";
+import type { Listing, ListingLookup, ListingStatus, ListResponse } from "../api/types";
 
 export interface ListingFilters {
   q?: string;
@@ -47,6 +47,7 @@ export type ListingInput = Partial<
     | "bedrooms"
     | "bathrooms"
     | "livingAreaSqft"
+    | "lotAcres"
     | "yearBuilt"
     | "listedOn"
     | "sellerContactId"
@@ -79,3 +80,22 @@ export const useDeleteListing = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: listingKeys.all }),
   });
 };
+
+// --- Add with Zillow ---------------------------------------------------------
+
+// Whether the server has a BigDistrict key. Asked once and kept: it only
+// changes with a redeploy, and the answer decides whether the button exists.
+export const useListingLookupAvailable = () =>
+  useQuery({
+    queryKey: ["listings", "lookup-available"] as const,
+    queryFn: () => api.get<{ available: boolean }>("/listings/lookup"),
+    staleTime: Infinity,
+  });
+
+// Looks a link up and returns a DRAFT. Nothing is saved and no list changes,
+// so unlike the other mutations here there is nothing to invalidate.
+export const useLookupListing = () =>
+  useMutation({
+    mutationFn: (url: string) =>
+      api.post<{ lookup: ListingLookup }>("/listings/lookup", { url }),
+  });

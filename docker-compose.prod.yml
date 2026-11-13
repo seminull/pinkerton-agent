@@ -74,6 +74,11 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-}
+      # "Add with Zillow" (server/bigdistrict.ts). Without the key the button
+      # is hidden; the URL only needs setting to point somewhere other than
+      # the public BigDistrict.
+      BIGDISTRICT_API_KEY: ${BIGDISTRICT_API_KEY:-}
+      BIGDISTRICT_API_URL: ${BIGDISTRICT_API_URL:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

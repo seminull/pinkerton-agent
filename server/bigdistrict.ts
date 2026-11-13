@@ -1,0 +1,173 @@
+import { apiError } from "./http";
+import type { ListingLookup } from "./types";
+
+// The BigDistrict integration: asking the property-records app "which home is
+// this listing link about, and what do the county records say about it?"
+//
+// Why it goes through BigDistrict at all: this app deliberately does no
+// scraping, and neither does BigDistrict — nothing is ever fetched from the
+// listing site. BigDistrict reads the address out of the text of the link and
+// matches it to the appraisal roll it already holds. So what comes back is what
+// the county knows (address, beds, baths, living area, lot, year built), and
+// never what only the listing knows (price, photos, description, status).
+//
+// BigDistrict logs and stores every request on its side (its
+// docs/INTEGRATIONS.md); this module keeps nothing.
+
+// Both from the environment. The URL has a default because there is one
+// BigDistrict; the key does not, because without one the feature is simply off.
+const baseUrl = (): string =>
+  (process.env.BIGDISTRICT_API_URL?.trim() || "https://bigdistrict.app").replace(/\/$/, "");
+const apiKey = (): string | null => process.env.BIGDISTRICT_API_KEY?.trim() || null;
+
+/** Whether the "Add with Zillow" button can do anything. */
+export const bigDistrictConfigured = (): boolean => apiKey() !== null;
+
+// A person is watching a spinner; BigDistrict answers in well under a second
+// when it is healthy. Long enough for a slow day, short enough to fail visibly.
+const TIMEOUT_MS = 8000;
+
+// The parts of BigDistrict's answer this app reads. Everything is optional on
+// purpose: it is another service's response, and a missing field should
+// degrade to "blank in the form", not throw.
+interface BigDistrictAnswer {
+  status?: string;
+  candidates?: number;
+  parsed?: {
+    address?: string | null;
+    line1?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+  };
+  match?: {
+    quality?: string;
+    county?: string | null;
+    url?: string | null;
+    address?: {
+      line1?: string | null;
+      city?: string | null;
+      state?: string | null;
+      postalCode?: string | null;
+    };
+    bedrooms?: number | null;
+    bathrooms?: number | null;
+    livingAreaSqft?: number | null;
+    lotAcres?: number | null;
+    yearBuilt?: number | null;
+  } | null;
+}
+
+const text = (value: unknown): string => (typeof value === "string" ? value.trim() : "");
+const count = (value: unknown): number | null =>
+  typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+
+// The link as it will be kept in the listing's notes: origin and path only.
+// Share links carry tracking parameters, and those have no business being
+// stored against a listing.
+const cleanLink = (raw: string): string => {
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return raw;
+  }
+};
+
+/**
+ * Look a listing link up in BigDistrict and turn the answer into a draft
+ * listing. Throws an apiError for every failure a person can act on.
+ *
+ * @param requestedBy this app's id for the signed-in user — sent so
+ *   BigDistrict's request log can tell who asked, without it holding an email.
+ */
+export const lookupListing = async (url: string, requestedBy: string): Promise<ListingLookup> => {
+  const key = apiKey();
+  if (!key) throw apiError(503, "listing_lookup_not_configured");
+
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl()}/api/integrations/listing-lookup`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+      body: JSON.stringify({ url, requestedBy }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (err) {
+    console.error("BigDistrict listing lookup: request failed:", err);
+    throw apiError(502, "listing_lookup_unavailable");
+  }
+
+  // The one failure that is about the link itself, not the plumbing.
+  if (response.status === 422) throw apiError(422, "unsupported_listing_url");
+  if (response.status === 429) throw apiError(429, "listing_lookup_busy");
+  if (!response.ok) {
+    // 401 (our key is wrong) and 503 (BigDistrict has no key configured, or its
+    // search is down) are operator problems. Logged with the status so they can
+    // be told apart here; the person at the keyboard just sees "unavailable".
+    console.error(`BigDistrict listing lookup: answered ${response.status}`);
+    throw apiError(502, "listing_lookup_unavailable");
+  }
+
+  const answer = (await response.json().catch(() => null)) as BigDistrictAnswer | null;
+  if (!answer || typeof answer !== "object") throw apiError(502, "listing_lookup_unavailable");
+
+  const zillowUrl = cleanLink(url);
+  const match = answer.status === "matched" ? answer.match : null;
+
+  if (match) {
+    const bigDistrictUrl = text(match.url) || null;
+    return {
+      status: "matched",
+      quality: match.quality === "exact" ? "exact" : "approximate",
+      draft: {
+        addressLine1: text(match.address?.line1),
+        city: text(match.address?.city),
+        state: text(match.address?.state) || "TX",
+        postalCode: text(match.address?.postalCode),
+        // The roll stores counts as decimals (4.0) and areas with fractions
+        // (2812.5); the listing columns are whole numbers.
+        bedrooms: count(match.bedrooms) === null ? null : Math.round(match.bedrooms!),
+        bathrooms: count(match.bathrooms),
+        livingAreaSqft: count(match.livingAreaSqft) === null ? null : Math.round(match.livingAreaSqft!),
+        lotAcres: count(match.lotAcres),
+        yearBuilt: count(match.yearBuilt),
+        // Kept with the listing so the source of the pre-filled details, and
+        // the original link, are one click away later.
+        notes: [`Zillow: ${zillowUrl}`, bigDistrictUrl ? `County record: ${bigDistrictUrl}` : ""]
+          .filter(Boolean)
+          .join("\n"),
+      },
+      county: text(match.county) || null,
+      bigDistrictUrl,
+      zillowUrl,
+      candidates: 1,
+    };
+  }
+
+  // No single parcel: outside BigDistrict's counties, or more than one home
+  // fits. The link's own address is still worth pre-filling. When BigDistrict
+  // couldn't tell where the street ends and the city begins, both arrive
+  // together and go in the street field for the person to split.
+  const parsed = answer.parsed ?? {};
+  return {
+    status: answer.status === "ambiguous" ? "ambiguous" : "not_found",
+    quality: null,
+    draft: {
+      addressLine1: text(parsed.line1) || text(parsed.address),
+      city: text(parsed.city),
+      state: text(parsed.state) || "TX",
+      postalCode: text(parsed.postalCode),
+      bedrooms: null,
+      bathrooms: null,
+      livingAreaSqft: null,
+      lotAcres: null,
+      yearBuilt: null,
+      notes: `Zillow: ${zillowUrl}`,
+    },
+    county: null,
+    bigDistrictUrl: null,
+    zillowUrl,
+    candidates: typeof answer.candidates === "number" ? answer.candidates : 0,
+  };
+};

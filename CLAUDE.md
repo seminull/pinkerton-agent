@@ -39,6 +39,7 @@ server/                  API. TypeScript, run with tsx.
   index.ts               Entry: middleware, health, the session gate, route mounting.
   auth.ts                Sessions, cookies, the requireSession gate, the allowlist.
   password.ts            Argon2id hashing (node:crypto — no dependency).
+  bigdistrict.ts         Client for BigDistrict's listing-lookup ("Add with Zillow").
   admin.ts               The admin role: how it's granted, and the adminOnly gate.
   create-user.ts         CLI: `pnpm user:create`. Makes the first account.
   set-admin.ts           CLI: `pnpm user:admin`. Makes the first admin.

@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { Op, type WhereOptions } from "sequelize";
+import type { AuthEnv } from "../auth";
+import { bigDistrictConfigured, lookupListing } from "../bigdistrict";
 import { Contact, Listing } from "../sequelize/models";
 import {
   apiError,
@@ -10,7 +12,7 @@ import {
   requireUuid,
 } from "../http";
 
-const app = new Hono();
+const app = new Hono<AuthEnv>();
 
 const WRITABLE = [
   "addressLine1",
@@ -40,6 +42,26 @@ const SORT_FIELDS: Record<string, string> = {
   listedOn: "listedOn",
   status: "status",
 };
+
+// GET /api/listings/lookup — whether "Add with Zillow" is available, so the
+// client can hide the button instead of offering one that can only fail.
+app.get("/lookup", (c) => c.json({ available: bigDistrictConfigured() }));
+
+// POST /api/listings/lookup  { url }
+// Turns a Zillow link into a DRAFT listing — nothing is saved. The address is
+// read from the link and matched to county records by BigDistrict; see
+// server/bigdistrict.ts for why no listing site is ever contacted. The client
+// opens the normal new-listing form on the result, and the listing is only
+// created when the person reviews it and presses Create.
+app.post("/lookup", async (c) => {
+  const body: unknown = await c.req.json().catch(() => null);
+  const url = (body as { url?: unknown } | null)?.url;
+  // Bounded before it is forwarded anywhere: it is free text from a form.
+  if (typeof url !== "string" || !url.trim() || url.length > 600) {
+    throw apiError(422, "unsupported_listing_url");
+  }
+  return c.json({ lookup: await lookupListing(url.trim(), c.get("auth").user.id) });
+});
 
 // GET /api/listings?q=&status=&city=&minPrice=&maxPrice=&sort=&dir=&limit=&offset=
 // Prices are cents on the wire, matching the column — the client formats.

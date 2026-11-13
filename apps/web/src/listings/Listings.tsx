@@ -16,13 +16,14 @@ import {
   Title,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconPencil, IconPlus, IconSearch } from "@tabler/icons-react";
-import type { Listing, ListingStatus } from "../api/types";
+import { IconLink, IconPencil, IconPlus, IconSearch } from "@tabler/icons-react";
+import type { Listing, ListingLookup, ListingStatus } from "../api/types";
 import { LISTING_STATUS_COLORS } from "../theme";
 import { formatDate, formatPriceCents, humanize } from "../format";
 import PageStack from "../motion/PageStack";
+import AddWithZillowModal from "./AddWithZillowModal";
 import ListingFormModal from "./ListingFormModal";
-import { useListings } from "./queries";
+import { useListingLookupAvailable, useListings } from "./queries";
 
 const PAGE_SIZE = 25;
 
@@ -43,6 +44,10 @@ export default function Listings() {
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<Listing | undefined>();
   const [formOpen, setFormOpen] = useState(false);
+  // "Add with Zillow": the link dialog, then the result the form opens on.
+  const [zillowOpen, setZillowOpen] = useState(false);
+  const [lookup, setLookup] = useState<ListingLookup | undefined>();
+  const lookupAvailable = useListingLookupAvailable();
 
   // See the note in Contacts.tsx: gate on `data`, not `isPending`.
   const { data, isError, error } = useListings({
@@ -54,11 +59,23 @@ export default function Listings() {
 
   const openCreate = () => {
     setEditing(undefined);
+    // A plain "New listing" must not inherit the last lookup's draft.
+    setLookup(undefined);
+    setFormOpen(true);
+  };
+
+  // The lookup came back: close the link dialog and open the ordinary
+  // new-listing form on its draft. Nothing has been saved yet.
+  const openFromLookup = (result: ListingLookup) => {
+    setZillowOpen(false);
+    setEditing(undefined);
+    setLookup(result);
     setFormOpen(true);
   };
 
   const openEdit = (listing: Listing) => {
     setEditing(listing);
+    setLookup(undefined);
     setFormOpen(true);
   };
 
@@ -66,9 +83,22 @@ export default function Listings() {
     <PageStack>
       <Group justify="space-between">
         <Title order={2}>Listings</Title>
-        <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
-          New listing
-        </Button>
+        <Group gap="sm">
+          {/* Only offered when the server has a BigDistrict key — otherwise it
+              is a button that can do nothing but fail. */}
+          {lookupAvailable.data?.available && (
+            <Button
+              variant="light"
+              leftSection={<IconLink size={16} />}
+              onClick={() => setZillowOpen(true)}
+            >
+              Add with Zillow
+            </Button>
+          )}
+          <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
+            New listing
+          </Button>
+        </Group>
       </Group>
 
       <Card withBorder padding="sm">
@@ -202,10 +232,19 @@ export default function Listings() {
       )}
 
       <ListingFormModal
-        key={editing?.id ?? "new"}
+        // Remounted per target so the form reloads its initial values — and a
+        // lookup gets its own key, or a second lookup would open on the first
+        // one's draft.
+        key={editing?.id ?? (lookup ? `lookup-${lookup.zillowUrl}` : "new")}
         opened={formOpen}
         onClose={() => setFormOpen(false)}
         listing={editing}
+        lookup={lookup}
+      />
+      <AddWithZillowModal
+        opened={zillowOpen}
+        onClose={() => setZillowOpen(false)}
+        onResult={openFromLookup}
       />
     </PageStack>
   );

@@ -76,3 +76,36 @@ export interface TimeImportResult {
   createdCategories: string[];
   createdWorkTypes: string[];
 }
+
+/**
+ * POST /api/listings/lookup — a listing link looked up in BigDistrict, shaped
+ * as a draft listing for the form to open with.
+ */
+export interface ListingLookup {
+  /**
+   * matched   — the home was found in the county records
+   * ambiguous — more than one home fits the address; none was chosen
+   * not_found — not in the records (usually: outside BigDistrict's counties)
+   */
+  status: "matched" | "ambiguous" | "not_found";
+  /** How sure a match is. `approximate` deserves a look at the address. */
+  quality: "exact" | "approximate" | null;
+  /** Never includes a price or status — only the listing site knows those. */
+  draft: {
+    addressLine1: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    bedrooms: number | null;
+    bathrooms: number | null;
+    livingAreaSqft: number | null;
+    lotAcres: number | null;
+    yearBuilt: number | null;
+    notes: string;
+  };
+  county: string | null;
+  bigDistrictUrl: string | null;
+  /** The submitted link with its query string removed. */
+  zillowUrl: string;
+  candidates: number;
+}

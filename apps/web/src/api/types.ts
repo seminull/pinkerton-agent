@@ -175,3 +175,31 @@ export interface TimeImportResult {
   createdCategories: string[];
   createdWorkTypes: string[];
 }
+
+/**
+ * POST /api/listings/lookup — a Zillow link looked up in BigDistrict's county
+ * records and shaped as a draft listing. Mirrors server/types.ts.
+ */
+export interface ListingLookup {
+  /** matched = found in county records; otherwise only the address is known. */
+  status: "matched" | "ambiguous" | "not_found";
+  /** How sure a match is. `approximate` deserves a look at the address. */
+  quality: "exact" | "approximate" | null;
+  /** Never includes a price or status — only the listing site knows those. */
+  draft: {
+    addressLine1: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    bedrooms: number | null;
+    bathrooms: number | null;
+    livingAreaSqft: number | null;
+    lotAcres: number | null;
+    yearBuilt: number | null;
+    notes: string;
+  };
+  county: string | null;
+  bigDistrictUrl: string | null;
+  zillowUrl: string;
+  candidates: number;
+}

@@ -1,4 +1,5 @@
 import {
+  Alert,
   Button,
   Group,
   Modal,
@@ -11,7 +12,7 @@ import {
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { ApiError } from "../api/client";
-import type { Listing, ListingStatus } from "../api/types";
+import type { Listing, ListingLookup, ListingStatus } from "../api/types";
 import { dollarsToCents } from "../format";
 import { useContacts } from "../contacts/queries";
 import { useCreateListing, useUpdateListing, type ListingInput } from "./queries";
@@ -30,9 +31,56 @@ interface Props {
   opened: boolean;
   onClose: () => void;
   listing?: Listing;
+  /**
+   * A lookup result to start a NEW listing from ("Add with Zillow"). Its draft
+   * pre-fills the form; nothing is saved until the person presses Create.
+   * Ignored when editing an existing listing.
+   */
+  lookup?: ListingLookup;
 }
 
-export default function ListingFormModal({ opened, onClose, listing }: Props) {
+// What the form says above its fields when it was opened from a lookup: where
+// the pre-filled details came from and how far to trust them. The differences
+// matter — a confident match can be skimmed, a probable one needs its address
+// checked, and a miss means only the address was filled in.
+const lookupNotice = (
+  lookup: ListingLookup
+): { color: string; title: string; message: string } => {
+  if (lookup.status === "matched" && lookup.quality === "exact") {
+    return {
+      color: "green",
+      title: "Found in county records",
+      message:
+        "Address and home details were filled in from the county appraisal record. Add the price and status, then check the rest.",
+    };
+  }
+  if (lookup.status === "matched") {
+    return {
+      color: "yellow",
+      title: "Probable match — check the address",
+      message:
+        "The county record found is the closest fit, not an exact one (the street may be spelled differently, or it may be a unit of the building). Confirm the address and details before saving.",
+    };
+  }
+  if (lookup.status === "ambiguous") {
+    return {
+      color: "yellow",
+      title: "More than one home fits that address",
+      message:
+        "County records have several addresses matching the link, so none was chosen. The address from the link is filled in; enter the home's details yourself.",
+    };
+  }
+  return {
+    color: "blue",
+    title: "Not in BigDistrict's records",
+    message:
+      "BigDistrict covers Dallas, Tarrant, Collin, and Denton counties. Only the address from the link was filled in — check that the street and city are split correctly, and enter the rest.",
+  };
+};
+
+export default function ListingFormModal({ opened, onClose, listing, lookup }: Props) {
+  // An edit never takes a draft: its values are the listing's own.
+  const draft = listing ? undefined : lookup?.draft;
   const create = useCreateListing();
   const update = useUpdateListing();
   const isEdit = Boolean(listing);
@@ -47,23 +95,29 @@ export default function ListingFormModal({ opened, onClose, listing }: Props) {
 
   const form = useForm({
     initialValues: {
-      addressLine1: listing?.addressLine1 ?? "",
+      addressLine1: listing?.addressLine1 ?? draft?.addressLine1 ?? "",
       addressLine2: listing?.addressLine2 ?? "",
-      city: listing?.city ?? "",
-      state: listing?.state ?? "TX",
-      postalCode: listing?.postalCode ?? "",
+      city: listing?.city ?? draft?.city ?? "",
+      state: listing?.state ?? draft?.state ?? "TX",
+      postalCode: listing?.postalCode ?? draft?.postalCode ?? "",
       mlsNumber: listing?.mlsNumber ?? "",
       status: listing?.status ?? ("draft" as ListingStatus),
       // The form works in dollars; the API and column are in cents.
       priceDollars: listing?.listPriceCents
         ? Number(listing.listPriceCents) / 100
         : ("" as number | ""),
-      bedrooms: (listing?.bedrooms ?? "") as number | "",
-      bathrooms: (listing?.bathrooms ? Number(listing.bathrooms) : "") as number | "",
-      livingAreaSqft: (listing?.livingAreaSqft ?? "") as number | "",
-      yearBuilt: (listing?.yearBuilt ?? "") as number | "",
+      bedrooms: (listing?.bedrooms ?? draft?.bedrooms ?? "") as number | "",
+      bathrooms: (listing?.bathrooms
+        ? Number(listing.bathrooms)
+        : (draft?.bathrooms ?? "")) as number | "",
+      livingAreaSqft: (listing?.livingAreaSqft ?? draft?.livingAreaSqft ?? "") as number | "",
+      // DECIMAL column, so it arrives as a string on an existing listing.
+      lotAcres: (listing?.lotAcres
+        ? Number(listing.lotAcres)
+        : (draft?.lotAcres ?? "")) as number | "",
+      yearBuilt: (listing?.yearBuilt ?? draft?.yearBuilt ?? "") as number | "",
       sellerContactId: listing?.sellerContactId ?? "",
-      notes: listing?.notes ?? "",
+      notes: listing?.notes ?? draft?.notes ?? "",
     },
     validate: {
       addressLine1: (value) => (value.trim() ? null : "Street address is required"),
@@ -75,7 +129,7 @@ export default function ListingFormModal({ opened, onClose, listing }: Props) {
   });
 
   const handleSubmit = form.onSubmit(async (values) => {
-    const { priceDollars, bathrooms, ...rest } = values;
+    const { priceDollars, bathrooms, lotAcres, ...rest } = values;
     const payload: ListingInput = {
       ...rest,
       state: rest.state.toUpperCase(),
@@ -83,6 +137,7 @@ export default function ListingFormModal({ opened, onClose, listing }: Props) {
       // DECIMAL columns round-trip as strings; send one so the value the API
       // stores is exactly what was typed.
       bathrooms: bathrooms === "" ? null : String(bathrooms),
+      lotAcres: lotAcres === "" ? null : String(lotAcres),
       bedrooms: rest.bedrooms === "" ? null : rest.bedrooms,
       livingAreaSqft: rest.livingAreaSqft === "" ? null : rest.livingAreaSqft,
       yearBuilt: rest.yearBuilt === "" ? null : rest.yearBuilt,
@@ -122,6 +177,12 @@ export default function ListingFormModal({ opened, onClose, listing }: Props) {
     >
       <form onSubmit={handleSubmit}>
         <Stack gap="sm">
+          {/* Only when this form was opened from "Add with Zillow". */}
+          {!listing && lookup && (
+            <Alert color={lookupNotice(lookup).color} title={lookupNotice(lookup).title}>
+              {lookupNotice(lookup).message}
+            </Alert>
+          )}
           <TextInput
             label="Street address"
             withAsterisk
@@ -177,6 +238,12 @@ export default function ListingFormModal({ opened, onClose, listing }: Props) {
               min={1700}
               max={new Date().getFullYear() + 2}
               {...form.getInputProps("yearBuilt")}
+            />
+            <NumberInput
+              label="Lot (acres)"
+              min={0}
+              decimalScale={4}
+              {...form.getInputProps("lotAcres")}
             />
           </Group>
           <Select
