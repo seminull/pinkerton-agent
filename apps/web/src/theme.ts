@@ -1,4 +1,4 @@
-import { createTheme, type MantineColorsTuple } from "@mantine/core";
+import { createTheme, InputWrapper, type MantineColorsTuple } from "@mantine/core";
 
 // The brand rose, as the ten-step scale Mantine wants (lightest to darkest).
 // Two steps are fixed by the logo artwork and the rest are graded around them:
@@ -33,6 +33,17 @@ export const theme = createTheme({
   fontFamily:
     "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
   headings: { fontWeight: "600" },
+  components: {
+    // Help text goes UNDER the field, not between the label and the field
+    // (Mantine's default). With it above, a field that has help text sits lower
+    // than the one beside it that doesn't, and a row of inputs comes out
+    // ragged. Below, every input in a row starts at the same height. Set once
+    // here so every form in the app — every TextInput, Select, PasswordInput —
+    // follows it without a per-field prop to forget.
+    InputWrapper: InputWrapper.extend({
+      defaultProps: { inputWrapperOrder: ["label", "input", "description", "error"] },
+    }),
+  },
 });
 
 // Status -> badge colour, shared by the listings table and the detail page so
