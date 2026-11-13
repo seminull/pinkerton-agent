@@ -125,3 +125,16 @@ export const clientIp = (c: Context): string | null => {
   }
   return null;
 };
+
+// An IANA zone name ("America/Chicago"), checked by asking the runtime whether
+// it knows it. Postgres would reject a bad one too, but as a 500; this makes it
+// the 400 it is. Used by every endpoint that buckets instants into local days.
+export const parseTimeZone = (raw: string | undefined): string => {
+  if (!raw) return "UTC";
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: raw });
+    return raw;
+  } catch {
+    throw apiError(400, "invalid_time_zone");
+  }
+};

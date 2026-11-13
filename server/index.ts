@@ -9,6 +9,7 @@ import { sequelize } from "./sequelize/models";
 import adminRoutes from "./routes/admin.routes";
 import authRoutes from "./routes/auth.routes";
 import contactRoutes from "./routes/contacts.routes";
+import dashboardRoutes from "./routes/dashboard.routes";
 import listingRoutes from "./routes/listings.routes";
 import listingPhotoRoutes from "./routes/listing-photos.routes";
 import timeEntryRoutes from "./routes/time-entries.routes";
@@ -104,6 +105,7 @@ app.use("/api/*", requireSession);
 // Signed in AND an admin — the router adds its own second gate (server/admin.ts).
 app.route("/api/admin", adminRoutes);
 app.route("/api/contacts", contactRoutes);
+app.route("/api/dashboard", dashboardRoutes);
 app.route("/api/listings", listingRoutes);
 app.route("/api/listings", listingPhotoRoutes);
 app.route("/api/activities", activityRoutes);

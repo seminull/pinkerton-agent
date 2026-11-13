@@ -1,45 +1,67 @@
-import { Anchor, Card, Grid, Group, Stack, Text, Title } from "@mantine/core";
+import type { ReactNode } from "react";
+import { Alert, Anchor, Card, Grid, Group, Stack, Text, Title } from "@mantine/core";
+import { IconAlertTriangle } from "@tabler/icons-react";
 import { Link } from "react-router";
 import DayTimeline from "../timeclock/DayTimeline";
 import { dayRange, parseDay } from "../timeclock/format";
 import { useToday } from "../timeclock/useToday";
 import PageStack from "../motion/PageStack";
-import { useContacts } from "../contacts/queries";
-import { useListings } from "../listings/queries";
 import { formatPriceCents } from "../format";
+import { useDashboard } from "../dashboard/queries";
+import {
+  DaysOnMarketChart,
+  LeadSourcesChart,
+  LeadsByMonthChart,
+  PipelineChart,
+  TouchpointsChart,
+} from "../dashboard/DashboardCharts";
 
-// Deliberately thin: it reads the two list endpoints for their `total` and
-// shows nothing that would need its own aggregate endpoint. When these tiles
-// need real numbers (pipeline value, closings this month), add a
-// /api/dashboard route rather than pulling whole tables in here.
-function StatCard({ label, value, to }: { label: string; value: string; to: string }) {
-  return (
-    <Card component={Link} to={to} withBorder padding="lg" radius="md">
+// Every number here comes from one aggregate request (GET /api/dashboard), so
+// the tiles and charts are true for the whole database rather than for the
+// first page of a list endpoint.
+
+function StatCard({
+  label,
+  value,
+  to,
+  footer,
+}: {
+  label: string;
+  value: string;
+  to?: string;
+  footer?: ReactNode;
+}) {
+  const body = (
+    <>
       <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
         {label}
       </Text>
       <Text size="xl" fw={700} mt={4}>
         {value}
       </Text>
+      {footer}
+    </>
+  );
+  // Two branches rather than a conditional `component` prop: Card's
+  // polymorphic typing can't express "a Link, but only sometimes".
+  return to ? (
+    <Card component={Link} to={to} withBorder padding="lg" radius="md" h="100%">
+      {body}
+    </Card>
+  ) : (
+    <Card withBorder padding="lg" radius="md" h="100%">
+      {body}
     </Card>
   );
 }
 
 export default function Dashboard() {
-  const contacts = useContacts({ limit: 1 });
-  const activeListings = useListings({ status: "active", limit: 100 });
-  const allListings = useListings({ limit: 1 });
+  const dashboard = useDashboard();
+  const data = dashboard.data;
+  const tiles = data?.tiles;
   // From useToday, not `new Date()`, so a dashboard left open overnight rolls
   // over to the new day instead of showing yesterday as "today".
   const todayRange = dayRange(parseDay(useToday()));
-
-  // Sum only the page we fetched — with limit=100 this is honest for a single
-  // agent and wrong for a brokerage. That's the trigger to build the aggregate
-  // endpoint mentioned above.
-  const pipelineCents = (activeListings.data?.results ?? []).reduce(
-    (sum, listing) => sum + Number(listing.listPriceCents ?? 0),
-    0
-  );
 
   return (
     <PageStack>
@@ -49,34 +71,71 @@ export default function Dashboard() {
 
       <Grid>
         <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-          <StatCard
-            label="Contacts"
-            value={String(contacts.data?.total ?? "—")}
-            to="/contacts"
-          />
+          <StatCard label="Contacts" value={tiles ? tiles.contactCount.toLocaleString() : "—"} to="/contacts" />
         </Grid.Col>
         <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
           <StatCard
-            label="Listings"
-            value={String(allListings.data?.total ?? "—")}
-            to="/listings"
-          />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-          <StatCard
-            label="Active"
-            value={String(activeListings.data?.total ?? "—")}
+            label="Active listings"
+            value={tiles ? tiles.activeListingCount.toLocaleString() : "—"}
             to="/listings"
           />
         </Grid.Col>
         <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
           <StatCard
             label="Active volume"
-            value={formatPriceCents(pipelineCents)}
+            value={tiles ? formatPriceCents(tiles.activeVolumeCents) : "—"}
             to="/listings"
           />
         </Grid.Col>
+        <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+          {/* Overdue is a status, so it carries an icon and a word as well as
+              the red: color alone would be lost on a colorblind reader. */}
+          <StatCard
+            label="Follow-ups due this week"
+            value={tiles ? tiles.dueThisWeek.toLocaleString() : "—"}
+            footer={
+              tiles && tiles.overdueFollowUps > 0 ? (
+                <Group gap={4} mt={4} c="red">
+                  <IconAlertTriangle size={14} aria-hidden />
+                  <Text size="sm" fw={600} inherit>
+                    {tiles.overdueFollowUps.toLocaleString()} overdue
+                  </Text>
+                </Group>
+              ) : tiles ? (
+                <Text size="sm" c="dimmed" mt={4}>
+                  Nothing overdue
+                </Text>
+              ) : null
+            }
+          />
+        </Grid.Col>
       </Grid>
+
+      {dashboard.isError && (
+        <Alert color="red" title="Couldn't load the dashboard">
+          The server didn&apos;t answer. Refresh to try again.
+        </Alert>
+      )}
+
+      {data && (
+        <Grid>
+          <Grid.Col span={{ base: 12, lg: 8 }}>
+            <TouchpointsChart weeks={data.touchpointsByWeek} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, lg: 4 }}>
+            <PipelineChart pipeline={data.pipeline} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <LeadsByMonthChart months={data.leadsByMonth} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <LeadSourcesChart sources={data.leadSources} />
+          </Grid.Col>
+          <Grid.Col span={12}>
+            <DaysOnMarketChart listings={data.daysOnMarket} />
+          </Grid.Col>
+        </Grid>
+      )}
 
       {/* The same component the Time Clock uses, so the two can't disagree and a
           segment clicked here opens the same editor. It reads only the
@@ -95,11 +154,6 @@ export default function Dashboard() {
           />
         </Stack>
       </Card>
-
-      <Text c="dimmed" size="sm">
-        Bare-bones scaffold. See PLAN.md for the schema and integrations this is
-        built to grow into.
-      </Text>
     </PageStack>
   );
 }

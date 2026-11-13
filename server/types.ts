@@ -144,3 +144,40 @@ export interface TimeShareAccessRecord {
   outcome: "allowed" | "revoked" | "owner_disabled";
   createdAt: Date;
 }
+
+/** GET /api/dashboard — everything the dashboard draws, pre-aggregated. */
+export interface DashboardData {
+  tiles: {
+    contactCount: number;
+    activeListingCount: number;
+    /** BIGINT cents as a string; the client converts at the edge. */
+    activeVolumeCents: string;
+    /** Open activities whose time has already passed. */
+    overdueFollowUps: number;
+    /** Open activities due in the next seven days. */
+    dueThisWeek: number;
+  };
+  /** Every stage, in pipeline order, including empty ones. */
+  pipeline: { stage: string; count: number }[];
+  /** New contacts per local month (YYYY-MM), oldest first, by contact type. */
+  leadsByMonth: { month: string; buyer: number; seller: number; both: number }[];
+  /** Completed client touchpoints per week; `week` is its Monday, YYYY-MM-DD. */
+  touchpointsByWeek: {
+    week: string;
+    calls: number;
+    /** Texts and emails together. */
+    messages: number;
+    showings: number;
+    meetings: number;
+  }[];
+  /** Contacts from the last 12 months by source, top few plus "Other". */
+  leadSources: { source: string; contacts: number; closed: number }[];
+  /** Active listings, longest on market first. */
+  daysOnMarket: {
+    id: string;
+    address: string;
+    city: string;
+    days: number;
+    listPriceCents: string | null;
+  }[];
+}

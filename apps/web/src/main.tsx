@@ -6,6 +6,7 @@ import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
 import "@mantine/core/styles.css";
+import "@mantine/charts/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/dropzone/styles.css";
 import "@mantine/notifications/styles.css";

@@ -1,7 +1,14 @@
 import { Hono } from "hono";
 import { Op, QueryTypes, UniqueConstraintError, type WhereOptions } from "sequelize";
 import type { AuthEnv } from "../auth";
-import { apiError, parsePage, pickFields, requireNonEmpty, requireUuid } from "../http";
+import {
+  apiError,
+  parsePage,
+  parseTimeZone,
+  pickFields,
+  requireNonEmpty,
+  requireUuid,
+} from "../http";
 import { sequelize, TimeCategory, TimeEntry, TimeWorkType } from "../sequelize/models";
 import { activeOptionNames, withTimeOptions } from "../time-options";
 import type { TimeDayTotals, TimeImportResult, TimeSummary } from "../types";
@@ -164,19 +171,6 @@ app.get("/summary", async (c) => {
   );
   return c.json({ summary: row });
 });
-
-// An IANA zone name ("America/Chicago"), checked by asking the runtime whether
-// it knows it. Postgres would reject a bad one too, but as a 500; this makes it
-// the 400 it is.
-const parseTimeZone = (raw: string | undefined): string => {
-  if (!raw) return "UTC";
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: raw });
-    return raw;
-  } catch {
-    throw apiError(400, "invalid_time_zone");
-  }
-};
 
 // GET /api/time-entries/daily?from=&to=&tz=
 // One row of totals per calendar day that has completed entries — what the

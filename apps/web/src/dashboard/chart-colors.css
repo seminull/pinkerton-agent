@@ -1,0 +1,34 @@
+/*
+ * Categorical chart colors, as CSS variables so light and dark each get their
+ * own step of the same hue. A dark-mode chart is not the light one inverted:
+ * every dark value was chosen for, and validated against, the dark card.
+ *
+ * Validated (OKLab colorblind-separation and contrast checks) against the
+ * surfaces these charts actually sit on: a Mantine Card, white in light mode
+ * and dark-6 (#2e2e2e) in dark. Slots are used IN ORDER — the order is what
+ * keeps adjacent series distinguishable under red/green colorblindness:
+ *   light: worst adjacent CVD ΔE 9.1, normal-vision ΔE 22.9
+ *   dark:  worst adjacent CVD ΔE 8.4, normal-vision ΔE 19.8, all ≥ 3:1
+ * In light mode slots 3 and 4 are under 3:1 against white, which is why every
+ * chart card offers a table view. Re-run the validator if you change a value.
+ *
+ * Deliberately not the brand rose: rose is the app's action color (buttons,
+ * active nav), and a pink series would read as something to click.
+ */
+:root {
+  --viz-1: #2a78d6; /* blue */
+  --viz-2: #eb6834; /* orange */
+  --viz-3: #1baf7a; /* aqua */
+  --viz-4: #eda100; /* yellow */
+  /* The card behind the bars. Stacked segments are outlined in it, which
+     draws the 2px gap that keeps two touching colors from blurring. */
+  --viz-surface: var(--mantine-color-white);
+}
+
+[data-mantine-color-scheme="dark"] {
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-4: #c98500;
+  --viz-surface: var(--mantine-color-dark-6);
+}

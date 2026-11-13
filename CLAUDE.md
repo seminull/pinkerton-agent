@@ -26,6 +26,7 @@ for the schema and integrations this is built to grow into.
 | Database | Postgres 17 in Docker, Sequelize 6 + sequelize-cli  |
 | Client   | React 19, Mantine 9, TanStack Query 5, React Router 7 |
 | Motion   | Motion (formerly Framer Motion), slim `m` components  |
+| Charts   | `@mantine/charts` (on Recharts), pinned to the core's version |
 | Build    | Vite, TypeScript strict                             |
 | Packages | pnpm workspaces (`apps/*`, `packages/*`)            |
 
@@ -53,6 +54,8 @@ server/                  API. TypeScript, run with tsx.
 apps/web/                Vite + React client (@pinkertonagent/web).
   src/api/               fetch wrapper and wire types.
   src/admin/             Users screen (admins only): create, edit, disable.
+  src/dashboard/         Dashboard charts, their validated colors, and the
+                         aggregate query behind them (GET /api/dashboard).
   src/motion/            PageStack: the shared page load-in animation.
   src/timeclock/         Time Clock: Today tab (start/stop timer) and Calendar tab
                          (month view of past days), CSV export.
