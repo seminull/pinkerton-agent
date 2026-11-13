@@ -84,15 +84,10 @@ export default function LoginPage() {
     <Center mih="100vh" p="md">
       <Paper withBorder shadow="sm" p="xl" w="100%" maw={400}>
         <Stack>
-          {/* The lockup carries the name, so there is no separate text title —
-              but the page still needs a heading for screen readers and for
-              anyone landing here by keyboard. */}
-          <Stack align="center" gap="xs">
+          {/* The lockup carries the name, so there is no separate text title. */}
+          <Center>
             <BrandLogo h={190} />
-            <Text component="h1" c="dimmed" size="sm" m={0} fw={400}>
-              Sign in to your CRM
-            </Text>
-          </Stack>
+          </Center>
 
           {error && (
             <Alert color="red" icon={<IconAlertCircle size={18} />}>
