@@ -136,15 +136,16 @@ export const useDeleteTimeEntry = () => {
   });
 };
 
-// Every completed entry, oldest first, for the CSV export. Walks the pages
-// because the API caps a page at 100 rows — an export that silently stopped at
-// the first hundred would be worse than no export.
+// Every completed entry, oldest first, for the CSV export — all of them, or
+// only those in `range` (one day's export). Walks the pages because the API
+// caps a page at 100 rows — an export that silently stopped at the first
+// hundred would be worse than no export.
 const EXPORT_PAGE = 100;
-export const fetchAllTimeEntries = async (): Promise<TimeEntry[]> => {
+export const fetchAllTimeEntries = async (range?: TimeRange): Promise<TimeEntry[]> => {
   const all: TimeEntry[] = [];
   for (let offset = 0; ; offset += EXPORT_PAGE) {
     const page = await api.get<ListResponse<TimeEntry>>(
-      `/time-entries${queryString({ offset, limit: EXPORT_PAGE })}`
+      `/time-entries${queryString({ offset, limit: EXPORT_PAGE, ...range })}`
     );
     all.push(...page.results);
     if (page.results.length < EXPORT_PAGE || all.length >= page.total) break;

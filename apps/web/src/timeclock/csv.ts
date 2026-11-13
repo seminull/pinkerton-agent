@@ -4,8 +4,12 @@ import { entryMinutes, formatClockTime, formatDay } from "./format";
 const csvCell = (value: string | number | null): string =>
   `"${String(value ?? "").replace(/"/g, '""')}"`;
 
-/** Builds the Excel-friendly CSV of the given entries and triggers a download. */
-export const downloadCsv = (entries: TimeEntry[]): void => {
+/**
+ * Builds the Excel-friendly CSV of the given entries and triggers a download.
+ * `label` names the file: the day it covers for a one-day export, or by
+ * default the date it was made, for the export of everything.
+ */
+export const downloadCsv = (entries: TimeEntry[], label = formatDay(new Date())): void => {
   const rows: (string | number | null)[][] = [
     [
       "Date",
@@ -43,7 +47,7 @@ export const downloadCsv = (entries: TimeEntry[]): void => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `Time_Clock_${formatDay(new Date())}.csv`;
+  link.download = `Time_Clock_${label}.csv`;
   link.click();
   // Released after a beat: revoking in the same tick can cancel the download.
   setTimeout(() => URL.revokeObjectURL(url), 2000);

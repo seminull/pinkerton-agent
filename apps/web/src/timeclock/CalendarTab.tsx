@@ -48,6 +48,7 @@ export default function CalendarTab({ day, onDayChange }: Props) {
   // entries are showing below until one is actually clicked.
   const [shownMonth, setShownMonth] = useState(day);
   const [exporting, setExporting] = useState(false);
+  const [exportingDay, setExportingDay] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [shareScope, setShareScope] = useState<TimeShareScope | null>(null);
 
@@ -72,6 +73,20 @@ export default function CalendarTab({ day, onDayChange }: Props) {
       notifications.show({ color: "red", title: "Export failed", message: describeError(error) });
     } finally {
       setExporting(false);
+    }
+  };
+
+  // The same file format as the full export, just one day of it, so a day's
+  // CSV can go back in through Import CSV like any other. Named for the day it
+  // covers rather than the day it was made: "Time_Clock_2026-11-03.csv".
+  const handleExportDay = async () => {
+    setExportingDay(true);
+    try {
+      downloadCsv(await fetchAllTimeEntries(dayRange(parseDay(day))), day);
+    } catch (error) {
+      notifications.show({ color: "red", title: "Export failed", message: describeError(error) });
+    } finally {
+      setExportingDay(false);
     }
   };
 
@@ -156,6 +171,18 @@ export default function CalendarTab({ day, onDayChange }: Props) {
                 onClick={() => setShareScope("day")}
               >
                 Share this day
+              </Button>
+              <Button
+                variant="default"
+                size="compact-sm"
+                leftSection={<IconDownload size={16} />}
+                onClick={handleExportDay}
+                loading={exportingDay}
+                // A day with nothing completed would download a header row and
+                // nothing else.
+                disabled={!selected || selected.entryCount === 0}
+              >
+                Export this day
               </Button>
             </Group>
           </Group>
