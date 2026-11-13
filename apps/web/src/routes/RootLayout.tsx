@@ -18,7 +18,11 @@ import {
   IconClock,
   IconExternalLink,
   IconHome,
+  IconHome2,
+  IconHomeSearch,
   IconLayoutDashboard,
+  IconListSearch,
+  IconMapSearch,
   IconLogout,
   IconUsers,
 } from "@tabler/icons-react";
@@ -32,6 +36,18 @@ const NAV_ITEMS = [
   { to: "/contacts", label: "Contacts", icon: IconAddressBook },
   { to: "/listings", label: "Listings", icon: IconHome },
   { to: "/time-clock", label: "Time Clock", icon: IconClock },
+];
+
+// Sites agents keep open beside the CRM. The working tools come first (the
+// MLS, then appraisal data), the consumer portals after — those are where a
+// client has usually already been looking. Tabler has no brand marks for
+// these, so the icons are generic stand-ins rather than logos.
+const EXTERNAL_LINKS = [
+  { href: "https://matrix.ntreis.net", label: "NTREIS Matrix", icon: IconListSearch },
+  { href: "https://bigdistrict.app", label: "Big District", icon: IconBuildingCommunity },
+  { href: "https://www.zillow.com", label: "Zillow", icon: IconHomeSearch },
+  { href: "https://www.realtor.com", label: "Realtor.com", icon: IconHome2 },
+  { href: "https://www.redfin.com", label: "Redfin", icon: IconMapSearch },
 ];
 
 export default function RootLayout() {
@@ -120,21 +136,25 @@ export default function RootLayout() {
           />
         ))}
 
-        {/* Off-site, so a plain <a>, not a router Link, and never "active".
-            A new tab, so a lookup in Big District doesn't navigate away from a
-            half-filled form here; the trailing icon says so before the click.
-            noopener stops that tab reaching back through window.opener, and
-            noreferrer keeps our URLs (which carry record ids) out of its logs. */}
-        <NavLink
-          component="a"
-          href="https://bigdistrict.app"
-          target="_blank"
-          rel="noopener noreferrer"
-          label="Big District"
-          leftSection={<IconBuildingCommunity size={18} stroke={1.5} />}
-          rightSection={<IconExternalLink size={14} stroke={1.5} />}
-          onClick={() => opened && toggle()}
-        />
+        <Divider my="xs" label="Links" labelPosition="left" />
+        {EXTERNAL_LINKS.map(({ href, label, icon: Icon }) => (
+          // Off-site, so a plain <a>, not a router Link, and never "active".
+          // A new tab, so a lookup doesn't navigate away from a half-filled
+          // form here; the trailing icon says so before the click. noopener
+          // stops that tab reaching back through window.opener, and noreferrer
+          // keeps our URLs (which carry record ids) out of third-party logs.
+          <NavLink
+            key={href}
+            component="a"
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            label={label}
+            leftSection={<Icon size={18} stroke={1.5} />}
+            rightSection={<IconExternalLink size={14} stroke={1.5} />}
+            onClick={() => opened && toggle()}
+          />
+        ))}
 
         {/* Shown only to admins. Hiding it is tidiness, not protection — the
             page and the API each check the role themselves. */}
