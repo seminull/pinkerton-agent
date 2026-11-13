@@ -29,6 +29,12 @@ const CALLBACK_ERRORS: Record<string, string> = {
     "That Google account doesn't have access to Pinkerton Agent. Try a different account, or ask the owner to add you.",
   account_disabled: "That account has been disabled.",
 };
+// True for a mouse-and-keyboard device, false for a phone or tablet. Used to
+// decide whether to focus the email field on arrival: on a desktop that saves a
+// click, but on a touch screen it throws the keyboard up over half the page
+// before the visitor has seen what the page is.
+const HAS_FINE_POINTER = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
 const GENERIC_CALLBACK_ERROR = "Sign-in didn't complete. Please try again.";
 
 // Read once, then scrubbed from the address bar so a refresh (or a bookmark)
@@ -81,12 +87,19 @@ export default function LoginPage() {
   });
 
   return (
-    <Center mih="100vh" p="md">
-      <Paper withBorder shadow="sm" p="xl" w="100%" maw={400}>
+    // dvh, not vh: on a phone, 100vh is the height with the browser's address
+    // bar hidden, so a vh-tall page is always slightly taller than the screen
+    // and the card sits off-centre with a pointless scroll. dvh tracks what is
+    // actually visible. When the card is taller than the screen (a phone on its
+    // side), min-height lets the page grow and scroll rather than clipping.
+    <Center mih="100dvh" p="md">
+      {/* Tighter padding below the xs breakpoint: on a 320px phone the roomy
+          desktop padding would leave the fields barely 220px wide. */}
+      <Paper withBorder shadow="sm" p={{ base: "lg", xs: "xl" }} w="100%" maw={400}>
         <Stack>
           {/* The lockup carries the name, so there is no separate text title. */}
           <Center>
-            <BrandLogo h={190} />
+            <BrandLogo h={{ base: 150, xs: 190 }} />
           </Center>
 
           {error && (
@@ -103,6 +116,7 @@ export default function LoginPage() {
                 component="a"
                 href="/api/auth/google/start"
                 variant="default"
+                size="md"
                 leftSection={<IconBrandGoogle size={18} />}
               >
                 Continue with Google
@@ -113,21 +127,33 @@ export default function LoginPage() {
 
           <form onSubmit={submit} noValidate>
             <Stack>
+              {/* size="md" on every control here is load-bearing, not taste:
+                  it makes the input text 16px. iOS Safari zooms the whole page
+                  in when a focused field's text is smaller than that, and
+                  doesn't zoom back out afterwards. It also takes the controls
+                  to 42px tall, a comfortable thumb target. */}
               <TextInput
                 label="Email"
                 type="email"
+                size="md"
                 autoComplete="username"
-                autoFocus
+                // Phone keyboards would otherwise capitalise the first letter
+                // and "correct" an address into a dictionary word.
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                autoFocus={HAS_FINE_POINTER}
                 key={form.key("email")}
                 {...form.getInputProps("email")}
               />
               <PasswordInput
                 label="Password"
+                size="md"
                 autoComplete="current-password"
                 key={form.key("password")}
                 {...form.getInputProps("password")}
               />
-              <Button type="submit" loading={submitting}>
+              <Button type="submit" size="md" loading={submitting}>
                 Sign in
               </Button>
             </Stack>

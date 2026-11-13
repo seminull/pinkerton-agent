@@ -1,4 +1,4 @@
-import { Image } from "@mantine/core";
+import { Image, type StyleProp } from "@mantine/core";
 import logoDark from "./logo-dark.svg";
 import logoLight from "./logo-light.svg";
 import markDark from "./mark-dark.svg";
@@ -18,8 +18,12 @@ import markLight from "./mark-light.svg";
 // rather than editing the two independently.
 
 interface Props {
-  /** Rendered height in px. Width follows the artwork's aspect ratio. */
-  h: number;
+  /**
+   * Rendered height in px; width follows the artwork's aspect ratio. Takes
+   * Mantine's responsive form too — `{ base: 150, xs: 190 }` — so a caller can
+   * shrink the artwork on a phone.
+   */
+  h: StyleProp<number>;
 }
 
 // Both colourings are rendered and CSS hides the wrong one (Mantine's

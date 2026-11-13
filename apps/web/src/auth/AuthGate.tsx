@@ -16,7 +16,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   if (status === "loading") {
     return (
-      <Center mih="100vh">
+      <Center mih="100dvh">
         <Loader />
       </Center>
     );
@@ -27,7 +27,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   // than saying so.
   if (status === "error") {
     return (
-      <Center mih="100vh" p="md">
+      <Center mih="100dvh" p="md">
         <Stack maw={420}>
           <Alert
             color="red"
