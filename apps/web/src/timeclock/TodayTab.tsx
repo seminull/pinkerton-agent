@@ -16,6 +16,7 @@ import { notifications } from "@mantine/notifications";
 import { IconPlayerPlayFilled, IconPlayerStopFilled } from "@tabler/icons-react";
 import { ApiError } from "../api/client";
 import PageStack from "../motion/PageStack";
+import DayTimeline from "./DayTimeline";
 import EntriesTable from "./EntriesTable";
 import { describeError } from "./errors";
 import { dayRange, formatClockTime, formatDuration, formatElapsed, parseDay } from "./format";
@@ -264,6 +265,16 @@ export default function TodayTab() {
             />
             <Stat label="Completed tasks" value={String(totals.data?.summary.entryCount ?? 0)} />
           </SimpleGrid>
+        </Stack>
+      </Card>
+
+      <Card withBorder>
+        <Stack>
+          <Title order={4}>Today&apos;s timeline</Title>
+          <DayTimeline
+            range={todayRange}
+            emptyText="Nothing tracked yet today. Your day will be drawn here as you record tasks."
+          />
         </Stack>
       </Card>
 

@@ -6,6 +6,7 @@ import { IconDownload } from "@tabler/icons-react";
 import type { TimeDayTotals } from "../api/types";
 import PageStack from "../motion/PageStack";
 import { downloadCsv } from "./csv";
+import DayTimeline from "./DayTimeline";
 import EntriesTable from "./EntriesTable";
 import { describeError } from "./errors";
 import { dayRange, formatDuration, formatLongDay, parseDay } from "./format";
@@ -153,6 +154,9 @@ export default function CalendarTab({ day, onDayChange }: Props) {
             />
             <Stat label="Completed tasks" value={String(selected?.entryCount ?? 0)} />
           </SimpleGrid>
+          {/* No emptyText: on an empty day the table's own message below says
+              so, and saying it twice in one card is clutter. */}
+          <DayTimeline range={dayRange(parseDay(day))} />
           {/* Keyed by the day so picking another one resets the page number. */}
           <EntriesTable
             key={day}

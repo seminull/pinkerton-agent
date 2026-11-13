@@ -23,3 +23,10 @@ export const WORK_TYPES = [
   "Reviewing assistant work",
   "Assistant work (not my time)",
 ];
+
+// The two values the totals treat specially — breaks and assistant-performed
+// work are both excluded from "my work time". Named here so the timeline's
+// colours and the server's sums (BREAK_CATEGORY / ASSISTANT_WORK_TYPE in the
+// route file) are visibly keyed on the same strings.
+export const BREAK_CATEGORY = "Lunch / Break";
+export const ASSISTANT_WORK_TYPE = "Assistant work (not my time)";
