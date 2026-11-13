@@ -10,17 +10,18 @@ const pad = (n: number): string => String(n).padStart(2, "0");
 export const formatDay = (date: Date): string =>
   `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
-export const formatClockTime = (iso: string): string =>
+export const formatClockTime = (iso: string, timeZone?: string): string =>
   new Date(iso).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
     second: "2-digit",
+    ...(timeZone ? { timeZone } : {}),
   });
 
 // Whole minutes for one completed entry, rounded the same way the server's
 // summary rounds (see GET /time-entries/summary) so the Minutes column always
 // adds up to the totals shown above it.
-export const entryMinutes = (entry: TimeEntry): number =>
+export const entryMinutes = (entry: Pick<TimeEntry, "startedAt" | "endedAt">): number =>
   entry.endedAt
     ? Math.max(
         0,

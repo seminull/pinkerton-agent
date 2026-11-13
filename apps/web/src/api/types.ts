@@ -161,6 +161,30 @@ export interface TimeDayTotals extends TimeSummary {
   day: string;
 }
 
+export type TimeShareScope = "calendar" | "day";
+
+/** Public metadata for a read-only Time Clock capability link. */
+export interface TimeShare {
+  scope: TimeShareScope;
+  /** Fixed day, or the initially selected day for a calendar share. */
+  day: string;
+  /** The owner's IANA zone; it defines dates and displayed clock times. */
+  timeZone: string;
+  createdAt: string;
+}
+
+/** A public entry. File references are omitted at the API boundary. */
+export interface SharedTimeEntry {
+  id: string;
+  category: string;
+  task: string;
+  workType: string;
+  notes: string | null;
+  startedAt: string;
+  endedAt: string;
+  kind: "work" | "break" | "assistant";
+}
+
 /**
  * A Time Clock category or work type (the Setup tab). A category carries
  * `isBreak`; a work type carries `countsAsOwnTime`.

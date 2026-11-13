@@ -14,6 +14,13 @@ import LoginPage from "./LoginPage";
 export default function AuthGate({ children }: { children: ReactNode }) {
   const { status, user, refresh } = useAuth();
 
+  // Public Time Clock shares are capability URLs: the unguessable token in the
+  // path authorizes their narrow, read-only API. They must render without a
+  // session, while every other client route keeps the normal login gate.
+  if (/^\/shared\/time-clock\/[A-Za-z0-9_-]+\/?$/.test(window.location.pathname)) {
+    return children;
+  }
+
   if (status === "loading") {
     return (
       <Center mih="100dvh">

@@ -9,10 +9,14 @@ import Listings from "./listings/Listings";
 import ListingDetail from "./listings/ListingDetail";
 import Users from "./admin/Users";
 import TimeClock from "./timeclock/TimeClock";
+import SharedTimeClock from "./timeclock/SharedTimeClock";
 
 // The route table, kept out of main.tsx's DOM bootstrap so it can be exercised
 // in tests (an unknown URL must resolve to NotFound) without mounting the app.
 export const routes: RouteObject[] = [
+  // A capability link is deliberately outside the signed-in app shell. The
+  // AuthGate also lets this exact path render for signed-out visitors.
+  { path: "/shared/time-clock/:token", element: <SharedTimeClock /> },
   {
     path: "/",
     element: <RootLayout />,

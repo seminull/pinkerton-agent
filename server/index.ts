@@ -13,6 +13,7 @@ import listingRoutes from "./routes/listings.routes";
 import listingPhotoRoutes from "./routes/listing-photos.routes";
 import timeEntryRoutes from "./routes/time-entries.routes";
 import timeOptionRoutes from "./routes/time-options.routes";
+import timeShareRoutes, { publicTimeShareRoutes } from "./routes/time-shares.routes";
 import activityRoutes from "./routes/activities.routes";
 
 const port = parseInt(process.env.PORT ?? "", 10) || 3040;
@@ -89,6 +90,9 @@ app.get("/api/health", async (c) => {
 
 // Sign-in itself has to be reachable signed out, so it is mounted above the gate.
 app.route("/api/auth", authRoutes);
+// Capability URLs are intentionally reachable without a session. The token is
+// the authorization, and this router exposes only redacted, read-only reports.
+app.route("/api/public/time-shares", publicTimeShareRoutes);
 
 // ---- the gate ------------------------------------------------------------
 // Hono runs middleware in registration order, so everything mounted BELOW this
@@ -105,6 +109,7 @@ app.route("/api/listings", listingPhotoRoutes);
 app.route("/api/activities", activityRoutes);
 app.route("/api/time-entries", timeEntryRoutes);
 app.route("/api/time-options", timeOptionRoutes);
+app.route("/api/time-shares", timeShareRoutes);
 
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`Running at http://localhost:${info.port}`);

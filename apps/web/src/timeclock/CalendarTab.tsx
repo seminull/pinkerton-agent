@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import { Alert, Button, Card, Group, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { Calendar } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
-import { IconDownload, IconUpload } from "@tabler/icons-react";
-import type { TimeDayTotals } from "../api/types";
+import { IconDownload, IconShare3, IconUpload } from "@tabler/icons-react";
+import type { TimeDayTotals, TimeShareScope } from "../api/types";
 import PageStack from "../motion/PageStack";
 import { downloadCsv } from "./csv";
 import DayTimeline from "./DayTimeline";
@@ -13,6 +13,7 @@ import { describeError } from "./errors";
 import { dayRange, formatDuration, formatLongDay, parseDay } from "./format";
 import { fetchAllTimeEntries, useDailyTotals, useTimeSummary } from "./queries";
 import Stat from "./Stat";
+import ShareTimeClockModal from "./ShareTimeClockModal";
 import { useToday } from "./useToday";
 
 // Compact form for a calendar cell, where "2h 05m" is all there is room for and
@@ -48,6 +49,7 @@ export default function CalendarTab({ day, onDayChange }: Props) {
   const [shownMonth, setShownMonth] = useState(day);
   const [exporting, setExporting] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [shareScope, setShareScope] = useState<TimeShareScope | null>(null);
 
   const daily = useDailyTotals(visibleRange(shownMonth));
   const allTotals = useTimeSummary();
@@ -134,18 +136,28 @@ export default function CalendarTab({ day, onDayChange }: Props) {
         <Stack>
           <Group justify="space-between">
             <Title order={4}>{formatLongDay(day)}</Title>
-            {day !== today && (
+            <Group gap="sm">
+              {day !== today && (
+                <Button
+                  variant="subtle"
+                  size="compact-sm"
+                  onClick={() => {
+                    onDayChange(today);
+                    setShownMonth(today);
+                  }}
+                >
+                  Jump to today
+                </Button>
+              )}
               <Button
-                variant="subtle"
+                variant="default"
                 size="compact-sm"
-                onClick={() => {
-                  onDayChange(today);
-                  setShownMonth(today);
-                }}
+                leftSection={<IconShare3 size={16} />}
+                onClick={() => setShareScope("day")}
               >
-                Jump to today
+                Share this day
               </Button>
-            )}
+            </Group>
           </Group>
           <SimpleGrid cols={{ base: 2, sm: 4 }}>
             <Stat label="Work" value={formatDuration(selected?.workMinutes ?? 0)} />
@@ -173,6 +185,13 @@ export default function CalendarTab({ day, onDayChange }: Props) {
           <Group justify="space-between">
             <Title order={4}>All recorded days</Title>
             <Group gap="sm">
+              <Button
+                variant="default"
+                leftSection={<IconShare3 size={16} />}
+                onClick={() => setShareScope("calendar")}
+              >
+                Share calendar
+              </Button>
               {/* Import sits beside Export because they are two directions of
                   the same file: what Export writes, Import can read back. */}
               <Button
@@ -221,6 +240,14 @@ export default function CalendarTab({ day, onDayChange }: Props) {
           setShownMonth(firstDay);
         }}
       />
+
+      {shareScope && (
+        <ShareTimeClockModal
+          scope={shareScope}
+          day={day}
+          onClose={() => setShareScope(null)}
+        />
+      )}
     </PageStack>
   );
 }

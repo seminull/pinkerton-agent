@@ -142,6 +142,21 @@ export interface TimeEntryAttributes {
   updatedAt: Date;
 }
 
+export interface TimeShareAttributes {
+  id: string;
+  userId: string;
+  /** SHA-256 hex of the public URL token. The token itself is never stored. */
+  tokenHash: string;
+  /** calendar | day */
+  scope: string;
+  /** Restricted day, or the initially selected day for a calendar share. */
+  day: string;
+  /** IANA time zone that defines the share's local calendar dates. */
+  timeZone: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 interface TimeOptionBase {
   id: string;
   userId: string;
@@ -196,6 +211,12 @@ export type TimeEntryInstance = Model<
 > &
   TimeEntryAttributes;
 
+export type TimeShareInstance = Model<
+  TimeShareAttributes,
+  Omit<TimeShareAttributes, Generated>
+> &
+  TimeShareAttributes;
+
 export type TimeCategoryInstance = Model<
   TimeCategoryAttributes,
   Omit<TimeCategoryAttributes, Generated>
@@ -216,5 +237,6 @@ export const User: ModelStatic<UserInstance>;
 export const AuthIdentity: ModelStatic<AuthIdentityInstance>;
 export const UserSession: ModelStatic<UserSessionInstance>;
 export const TimeEntry: ModelStatic<TimeEntryInstance>;
+export const TimeShare: ModelStatic<TimeShareInstance>;
 export const TimeCategory: ModelStatic<TimeCategoryInstance>;
 export const TimeWorkType: ModelStatic<TimeWorkTypeInstance>;
