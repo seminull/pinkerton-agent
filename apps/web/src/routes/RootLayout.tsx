@@ -2,6 +2,7 @@ import {
   AppShell,
   Avatar,
   Burger,
+  Divider,
   Group,
   Menu,
   NavLink,
@@ -16,6 +17,7 @@ import {
   IconHome,
   IconLayoutDashboard,
   IconLogout,
+  IconUsers,
 } from "@tabler/icons-react";
 import { Link, Outlet, useLocation } from "react-router";
 import { useAuth } from "../auth/authContext";
@@ -107,6 +109,22 @@ export default function RootLayout() {
             onClick={() => opened && toggle()}
           />
         ))}
+
+        {/* Shown only to admins. Hiding it is tidiness, not protection — the
+            page and the API each check the role themselves. */}
+        {user?.role === "admin" && (
+          <>
+            <Divider my="xs" label="Admin" labelPosition="left" />
+            <NavLink
+              component={Link}
+              to="/admin/users"
+              label="Users"
+              leftSection={<IconUsers size={18} stroke={1.5} />}
+              active={pathname.startsWith("/admin/users")}
+              onClick={() => opened && toggle()}
+            />
+          </>
+        )}
       </AppShell.Navbar>
 
       <AppShell.Main>

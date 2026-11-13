@@ -38,7 +38,9 @@ server/                  API. TypeScript, run with tsx.
   index.ts               Entry: middleware, health, the session gate, route mounting.
   auth.ts                Sessions, cookies, the requireSession gate, the allowlist.
   password.ts            Argon2id hashing (node:crypto — no dependency).
-  create-user.ts         CLI: `pnpm user:create`. The only way a password account is made.
+  admin.ts               The admin role: how it's granted, and the adminOnly gate.
+  create-user.ts         CLI: `pnpm user:create`. Makes the first account.
+  set-admin.ts           CLI: `pnpm user:admin`. Makes the first admin.
   http.ts                Shared request helpers (pagination, allowlists, errors).
   types.ts               Wire types — what the API sends, not what the table holds.
   routes/*.routes.ts     One file per resource.
@@ -48,6 +50,7 @@ server/                  API. TypeScript, run with tsx.
     seeders/             Demo data.
 apps/web/                Vite + React client (@pinkertonagent/web).
   src/api/               fetch wrapper and wire types.
+  src/admin/             Users screen (admins only): create, edit, disable.
   src/auth/              AuthProvider, the AuthGate around the router, the login page.
   src/<resource>/        Feature folder: queries.ts + components, colocated.
   src/routes/            Layout, error, 404, dashboard.
@@ -80,8 +83,9 @@ their own errors and never reach the root `onError`.
 `/api/*` partway down the file: routers mounted below that line need a session,
 the ones above it (health, auth) don't. New resource routers go below. There is
 no sign-up route and there must not be one — this is a private CRM, and accounts
-come only from `pnpm user:create` or a Google sign-in by an address in
-`AUTH_ALLOWED_EMAILS`. The client-side `AuthGate` is a convenience; the server
+come only from `pnpm user:create`, an admin on the Users screen, or a Google
+sign-in by an address in `AUTH_ALLOWED_EMAILS`. `/api/admin/*` adds a second
+gate (`adminOnly`) the same way. The client-side `AuthGate` is a convenience; the server
 check is the control.
 
 **The client calls relative `/api` paths.** Never an absolute origin — that URL

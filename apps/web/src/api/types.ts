@@ -105,3 +105,15 @@ export interface AuthStatus {
   /** Which sign-in buttons the server can actually honour. */
   providers: { google: boolean };
 }
+
+/** An account as the admin Users screen sees it. Mirrors server/types.ts. */
+export interface AdminUser extends AuthUser {
+  status: "active" | "disabled";
+  /** True once a provider has vouched for the address (a Google sign-in). */
+  emailVerified: boolean;
+  hasPassword: boolean;
+  /** Linked sign-in providers, e.g. ["google"]. */
+  providers: string[];
+  lastLoginAt: string | null;
+  createdAt: string;
+}

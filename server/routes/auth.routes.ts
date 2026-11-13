@@ -10,6 +10,7 @@ import {
   revokeCurrentSession,
   sha256Base64Url,
 } from "../auth";
+import { syncAdminRole } from "../admin";
 import { apiError } from "../http";
 import { hashPassword, MAX_PASSWORD_LENGTH, verifyPassword } from "../password";
 import { AuthIdentity, sequelize, User } from "../sequelize/models";
@@ -98,6 +99,9 @@ app.post("/login", async (c) => {
 
   await sequelize.transaction(async (transaction) => {
     await user.update({ lastLoginAt: new Date() }, { transaction });
+    // Only ever promotes an account whose email is already verified, so a
+    // password sign-in alone can't earn the role — see server/admin.ts.
+    await syncAdminRole(user, transaction);
     await issueSession(c, user.id, transaction);
   });
   return c.json({ user: publicUser(user) });
@@ -282,6 +286,9 @@ app.get("/google/callback", async (c) => {
       },
       { transaction }
     );
+    // After the update above, so a first-ever Google sign-in already counts as
+    // verified when the designation is checked.
+    await syncAdminRole(account, transaction);
     await issueSession(c, account.id, transaction);
     return "ok" as const;
   });

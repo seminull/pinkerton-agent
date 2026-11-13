@@ -42,6 +42,7 @@ Vite dev server together. To run the halves separately, use `pnpm dev:api` and
 | `pnpm db:migrate:undo`  | Roll back the last migration                     |
 | `pnpm db:seed`          | Insert demo data                                 |
 | `pnpm user:create`      | Create an account, or reset its password         |
+| `pnpm user:admin`       | Grant, revoke (`--revoke`), or `--list` admins   |
 | `pnpm services:up/down` | Start / stop Postgres                            |
 | `pnpm build:web`        | Production build of the client                   |
 
@@ -62,6 +63,11 @@ POST   /api/auth/login              { email, password }
 POST   /api/auth/logout
 GET    /api/auth/google/start       browser redirect to Google
 GET    /api/auth/google/callback    where Google sends the browser back
+
+GET    /api/admin/users     ?q= &sort= &dir= &limit= &offset=   (admins only)
+POST   /api/admin/users     { email, firstName, lastName, role?, password? }
+PATCH  /api/admin/users/:id { firstName?, lastName?, role?, status?, password? }
+POST   /api/admin/users/:id/revoke-sessions
 
 GET    /api/contacts        ?q= &stage= &type= &sort= &dir= &limit= &offset=
 POST   /api/contacts
@@ -99,6 +105,8 @@ two reasons:
    someone who already has one, set their `users.status` to `disabled`, which
    ends their sessions on the next request.
 
+3. **An admin created it** on the Users screen (below).
+
 A Google sign-in whose verified address matches an existing account is linked
 to it, so an account made with `user:create` can use either method afterwards.
 
@@ -113,6 +121,35 @@ and restart. The button appears only when all three are set. Only
 Sessions are an opaque token in an HttpOnly, SameSite=Lax cookie (Secure in
 production), stored server-side as a SHA-256 hash, valid 30 days, and revoked
 on sign-out. Passwords are hashed with Argon2id.
+
+### Admins and user management
+
+Admins get a **Users** screen (`/admin/users`): create accounts, edit names and
+roles, set a new password, sign someone out everywhere, and disable or
+re-enable an account. Creating an account there is the invitation — give it a
+temporary password and pass that on, or leave the password blank and the person
+gets in by signing in with Google from that exact address.
+
+Setting a password or disabling an account ends that person's sessions
+immediately. Accounts are disabled, not deleted. An account's email can't be
+changed. An admin can't demote or disable themselves, which is also what
+guarantees there is always a working admin.
+
+The role is granted three ways:
+
+- `pnpm user:admin <email>` from the server shell. This is how the first admin
+  is made, and the way back in if you're ever locked out.
+- `ADMIN_EMAILS` in `.env`: a listed address is promoted when it signs in, but
+  only once its email is verified by a Google sign-in. A password account is
+  never promoted by this list, because its address was typed, not proven.
+- An existing admin, from the Users screen.
+
+In production the CLI runs inside the API image:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  run --rm api node --import tsx server/set-admin.ts you@example.com
+```
 
 Not built yet: password reset by email, a screen to change your own password,
 session review, and MFA.

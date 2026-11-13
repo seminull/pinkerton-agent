@@ -22,3 +22,16 @@ export interface AuthUser {
   avatarUrl: string | null;
   role: "user" | "admin";
 }
+
+/** An account as the admin Users screen sees it. */
+export interface AdminUser extends AuthUser {
+  status: "active" | "disabled";
+  /** True once a provider has vouched for the address (a Google sign-in). */
+  emailVerified: boolean;
+  /** Whether password sign-in is possible. Never the hash. */
+  hasPassword: boolean;
+  /** Linked sign-in providers, e.g. ["google"]. */
+  providers: string[];
+  lastLoginAt: string | null;
+  createdAt: string;
+}

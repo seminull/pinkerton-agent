@@ -6,6 +6,7 @@ import { logger } from "hono/logger";
 import { ConnectionError } from "sequelize";
 import { requireSession, type AuthEnv } from "./auth";
 import { sequelize } from "./sequelize/models";
+import adminRoutes from "./routes/admin.routes";
 import authRoutes from "./routes/auth.routes";
 import contactRoutes from "./routes/contacts.routes";
 import listingRoutes from "./routes/listings.routes";
@@ -93,6 +94,8 @@ app.route("/api/auth", authRoutes);
 // public — the position is the access control.
 app.use("/api/*", requireSession);
 
+// Signed in AND an admin — the router adds its own second gate (server/admin.ts).
+app.route("/api/admin", adminRoutes);
 app.route("/api/contacts", contactRoutes);
 app.route("/api/listings", listingRoutes);
 app.route("/api/activities", activityRoutes);
