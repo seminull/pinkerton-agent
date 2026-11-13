@@ -45,8 +45,13 @@ COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile --filter pinkertonagent-app
 COPY .sequelizerc tsconfig.json ./
 COPY server server
+# A fresh named volume inherits this directory's ownership. Without creating it
+# before USER node, Docker would mount a root-owned directory the API cannot
+# write to.
+RUN mkdir -p /app/uploads && chown node:node /app/uploads
 ENV NODE_ENV=production \
-    PORT=3040
+    PORT=3040 \
+    LISTING_MEDIA_DIR=/app/uploads
 USER node
 EXPOSE 3040
 # `node --import tsx` rather than the tsx binary: one process instead of a

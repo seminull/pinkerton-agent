@@ -62,7 +62,8 @@ const text = (value: unknown): string => (typeof value === "string" ? value.trim
 const count = (value: unknown): number | null =>
   typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
 
-// The link as it will be kept in the listing's notes: origin and path only.
+// The link as it will be kept in the listing's external-links collection:
+// origin and path only.
 // Share links carry tracking parameters, and those have no business being
 // stored against a listing.
 const cleanLink = (raw: string): string => {
@@ -132,11 +133,7 @@ export const lookupListing = async (url: string, requestedBy: string): Promise<L
         livingAreaSqft: count(match.livingAreaSqft) === null ? null : Math.round(match.livingAreaSqft!),
         lotAcres: count(match.lotAcres),
         yearBuilt: count(match.yearBuilt),
-        // Kept with the listing so the source of the pre-filled details, and
-        // the original link, are one click away later.
-        notes: [`Zillow: ${zillowUrl}`, bigDistrictUrl ? `County record: ${bigDistrictUrl}` : ""]
-          .filter(Boolean)
-          .join("\n"),
+        notes: "",
       },
       county: text(match.county) || null,
       bigDistrictUrl,
@@ -163,7 +160,7 @@ export const lookupListing = async (url: string, requestedBy: string): Promise<L
       livingAreaSqft: null,
       lotAcres: null,
       yearBuilt: null,
-      notes: `Zillow: ${zillowUrl}`,
+      notes: "",
     },
     county: null,
     bigDistrictUrl: null,

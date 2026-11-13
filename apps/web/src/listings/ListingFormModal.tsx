@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Alert,
   Button,
   Group,
@@ -6,13 +7,20 @@ import {
   NumberInput,
   Select,
   Stack,
+  Text,
   Textarea,
   TextInput,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { ApiError } from "../api/client";
-import type { Listing, ListingLookup, ListingStatus } from "../api/types";
+import type {
+  ExternalLink,
+  Listing,
+  ListingLookup,
+  ListingStatus,
+} from "../api/types";
 import { dollarsToCents } from "../format";
 import { useContacts } from "../contacts/queries";
 import { useCreateListing, useUpdateListing, type ListingInput } from "./queries";
@@ -78,6 +86,25 @@ const lookupNotice = (
   };
 };
 
+const lookupLinks = (lookup: ListingLookup | undefined): ExternalLink[] => {
+  if (!lookup) return [];
+  return [
+    { label: "Zillow", url: lookup.zillowUrl },
+    ...(lookup.bigDistrictUrl
+      ? [{ label: "County record", url: lookup.bigDistrictUrl }]
+      : []),
+  ];
+};
+
+const isWebUrl = (value: string): boolean => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
 export default function ListingFormModal({ opened, onClose, listing, lookup }: Props) {
   // An edit never takes a draft: its values are the listing's own.
   const draft = listing ? undefined : lookup?.draft;
@@ -116,7 +143,11 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
         ? Number(listing.lotAcres)
         : (draft?.lotAcres ?? "")) as number | "",
       yearBuilt: (listing?.yearBuilt ?? draft?.yearBuilt ?? "") as number | "",
+      listedOn: listing?.listedOn ?? "",
       sellerContactId: listing?.sellerContactId ?? "",
+      // A lookup already knows the source portal and, on a match, the county
+      // record. Seed both as real links instead of burying them in notes.
+      externalLinks: (listing?.externalLinks ?? lookupLinks(lookup)) as ExternalLink[],
       notes: listing?.notes ?? draft?.notes ?? "",
     },
     validate: {
@@ -129,6 +160,29 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
   });
 
   const handleSubmit = form.onSubmit(async (values) => {
+    let hasLinkError = false;
+    values.externalLinks.forEach((link, index) => {
+      const label = link.label.trim();
+      const url = link.url.trim();
+      // A completely blank added row is harmless and simply is not saved.
+      if (!label && !url) return;
+      if (!label) {
+        form.setFieldError(`externalLinks.${index}.label`, "Add a label");
+        hasLinkError = true;
+      }
+      if (!url || !isWebUrl(url)) {
+        form.setFieldError(
+          `externalLinks.${index}.url`,
+          "Enter a full http:// or https:// URL"
+        );
+        hasLinkError = true;
+      }
+    });
+    if (hasLinkError) return;
+
+    const externalLinks = values.externalLinks
+      .map((link) => ({ label: link.label.trim(), url: link.url.trim() }))
+      .filter((link) => link.label && link.url);
     const { priceDollars, bathrooms, lotAcres, ...rest } = values;
     const payload: ListingInput = {
       ...rest,
@@ -141,9 +195,11 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
       bedrooms: rest.bedrooms === "" ? null : rest.bedrooms,
       livingAreaSqft: rest.livingAreaSqft === "" ? null : rest.livingAreaSqft,
       yearBuilt: rest.yearBuilt === "" ? null : rest.yearBuilt,
+      listedOn: rest.listedOn || null,
       addressLine2: rest.addressLine2 || null,
       mlsNumber: rest.mlsNumber || null,
       sellerContactId: rest.sellerContactId || null,
+      externalLinks,
       notes: rest.notes || null,
     };
 
@@ -217,6 +273,11 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
               {...form.getInputProps("priceDollars")}
             />
             <TextInput label="MLS #" {...form.getInputProps("mlsNumber")} />
+            <TextInput
+              type="date"
+              label="Listed on"
+              {...form.getInputProps("listedOn")}
+            />
           </Group>
           <Group grow>
             <NumberInput label="Beds" min={0} {...form.getInputProps("bedrooms")} />
@@ -254,6 +315,57 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
             data={sellerOptions}
             {...form.getInputProps("sellerContactId")}
           />
+          <Group justify="space-between" align="flex-end" mt="xs">
+            <Stack gap={1}>
+              <Text fw={600} size="sm">
+                External links
+              </Text>
+              <Text size="xs" c="dimmed">
+                Zillow, Realtor.com, Redfin, county records, or another property page.
+              </Text>
+            </Stack>
+            <Button
+              variant="subtle"
+              size="xs"
+              leftSection={<IconPlus size={14} />}
+              onClick={() => form.insertListItem("externalLinks", { label: "", url: "" })}
+            >
+              Add link
+            </Button>
+          </Group>
+          {form.values.externalLinks.length === 0 ? (
+            <Text size="sm" c="dimmed">
+              No external links saved.
+            </Text>
+          ) : (
+            <Stack gap="xs">
+              {form.values.externalLinks.map((_link, index) => (
+                <Group key={index} align="flex-start" wrap="nowrap">
+                  <TextInput
+                    label="Label"
+                    placeholder="Zillow"
+                    w={180}
+                    {...form.getInputProps(`externalLinks.${index}.label`)}
+                  />
+                  <TextInput
+                    label="URL"
+                    placeholder="https://…"
+                    flex={1}
+                    {...form.getInputProps(`externalLinks.${index}.url`)}
+                  />
+                  <ActionIcon
+                    variant="subtle"
+                    color="red"
+                    mt={26}
+                    aria-label={`Remove link ${index + 1}`}
+                    onClick={() => form.removeListItem("externalLinks", index)}
+                  >
+                    <IconTrash size={16} />
+                  </ActionIcon>
+                </Group>
+              ))}
+            </Stack>
+          )}
           <Textarea label="Notes" autosize minRows={2} {...form.getInputProps("notes")} />
           <Group justify="flex-end" mt="sm">
             <Button variant="subtle" onClick={onClose}>

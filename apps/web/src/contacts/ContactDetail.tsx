@@ -131,7 +131,7 @@ export default function ContactDetail() {
                 {contact.listings.map((listing) => (
                   <Table.Tr key={listing.id}>
                     <Table.Td>
-                      <Anchor component={Link} to="/listings">
+                      <Anchor component={Link} to={`/listings/${listing.id}`}>
                         {listing.addressLine1}, {listing.city} {listing.state}
                       </Anchor>
                     </Table.Td>

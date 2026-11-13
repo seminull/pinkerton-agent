@@ -23,10 +23,13 @@ export class ApiError extends Error {
 export const UNAUTHORIZED_EVENT = "pinkerton:unauthorized";
 
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
+  // The browser must supply multipart/form-data's boundary itself. Setting a
+  // generic content type on FormData produces an unreadable upload body.
+  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(init?.body && !isFormData ? { "Content-Type": "application/json" } : {}),
       ...init?.headers,
     },
   });
@@ -59,6 +62,8 @@ export const api = {
     request<T>(path, { method: "POST", body: JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
+  postForm: <T>(path: string, body: FormData) =>
+    request<T>(path, { method: "POST", body }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 

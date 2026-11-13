@@ -45,6 +45,11 @@ module.exports = (sequelize, DataTypes) => {
       // giving it a timezone only invites off-by-one-day bugs.
       listedOn: { type: DataTypes.DATEONLY },
       sellerContactId: { type: DataTypes.UUID },
+      // An ordered set of labels and URLs (Zillow, Realtor.com, county record,
+      // and similar). JSONB keeps this small listing-owned value atomic while
+      // still leaving room for a dedicated integrations table if links later
+      // gain sync status or other behavior.
+      externalLinks: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
       notes: { type: DataTypes.TEXT },
     },
     { tableName: 'listings' }
@@ -53,6 +58,7 @@ module.exports = (sequelize, DataTypes) => {
   Listing.associate = (models) => {
     Listing.belongsTo(models.Contact, { foreignKey: 'sellerContactId', as: 'seller' });
     Listing.hasMany(models.Activity, { foreignKey: 'listingId', as: 'activities' });
+    Listing.hasMany(models.ListingPhoto, { foreignKey: 'listingId', as: 'photos' });
   };
 
   return Listing;

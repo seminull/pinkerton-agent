@@ -36,6 +36,11 @@ export type ListingStatus =
   | "withdrawn"
   | "expired";
 
+export interface ExternalLink {
+  label: string;
+  url: string;
+}
+
 export interface Listing {
   id: string;
   addressLine1: string;
@@ -54,10 +59,21 @@ export interface Listing {
   yearBuilt: number | null;
   listedOn: string | null;
   sellerContactId: string | null;
+  externalLinks: ExternalLink[];
   notes: string | null;
   createdAt: string;
   updatedAt: string;
   seller?: Contact | null;
+}
+
+export interface ListingPhoto {
+  id: string;
+  listingId: string;
+  originalName: string;
+  contentType: string;
+  sizeBytes: number;
+  position: number;
+  createdAt: string;
 }
 
 export type ActivityType =

@@ -43,6 +43,8 @@ export interface ListingAttributes {
   listedOn: string | null;
   /** The seller. Nullable so a listing can be drafted before it has a contact. */
   sellerContactId: string | null;
+  /** Public portals and working records associated with this property. */
+  externalLinks: { label: string; url: string }[];
   notes: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -59,6 +61,19 @@ export interface ActivityAttributes {
   completedAt: Date | null;
   contactId: string | null;
   listingId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ListingPhotoAttributes {
+  id: string;
+  listingId: string;
+  /** Opaque server-generated filename; never exposed in the API response. */
+  storageKey: string;
+  originalName: string;
+  contentType: string;
+  sizeBytes: number;
+  position: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -156,6 +171,11 @@ type Generated = "id" | "createdAt" | "updatedAt";
 export type ContactInstance = Model<ContactAttributes> & ContactAttributes;
 export type ListingInstance = Model<ListingAttributes> & ListingAttributes;
 export type ActivityInstance = Model<ActivityAttributes> & ActivityAttributes;
+export type ListingPhotoInstance = Model<
+  ListingPhotoAttributes,
+  Omit<ListingPhotoAttributes, Generated>
+> &
+  ListingPhotoAttributes;
 
 export type UserInstance = Model<UserAttributes, Omit<UserAttributes, Generated>> &
   UserAttributes;
@@ -191,6 +211,7 @@ export const sequelize: Sequelize;
 export const Contact: ModelStatic<ContactInstance>;
 export const Listing: ModelStatic<ListingInstance>;
 export const Activity: ModelStatic<ActivityInstance>;
+export const ListingPhoto: ModelStatic<ListingPhotoInstance>;
 export const User: ModelStatic<UserInstance>;
 export const AuthIdentity: ModelStatic<AuthIdentityInstance>;
 export const UserSession: ModelStatic<UserSessionInstance>;

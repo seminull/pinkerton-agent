@@ -186,8 +186,18 @@ is filled in. Nothing is saved until you review the form and press Create.
 To enable it, set `BIGDISTRICT_API_KEY` in `.env` to the secret BigDistrict has
 for this app (its `INTEGRATION_API_KEYS=pinkerton-agent:<secret>`), then
 redeploy. Without a key the button is hidden. BigDistrict logs every lookup on
-its side; this app stores nothing about them beyond the links it writes into
-the listing's notes.
+its side; this app stores nothing about the lookup beyond the Zillow and county
+record URLs it adds to the property's external-links collection.
+
+## Property details and links
+
+Select a property's address or eye icon on the Listings page to open its detail
+page. It shows every stored property field, its seller and notes, photos, and
+any saved external links. Drop photos into the gallery or click it to choose up
+to 10 at a time; JPEG, PNG, and WebP files up to 10 MB each are accepted. Add
+or change Zillow, Realtor.com, Redfin, county-record, or other web links from
+the property form. Selecting a thumbnail opens the property's full-screen photo
+viewer with keyboard, touch, and zoom navigation.
 
 ## Schema
 
@@ -195,6 +205,11 @@ the listing's notes.
 survives a deleted contact) and `contacts`/`listings` → `activities`
 (`ON DELETE CASCADE`, since an interaction log has no meaning without its
 subject).
+
+`listings` → `listing_photos` (`ON DELETE CASCADE`). Postgres stores photo
+metadata; originals live under `uploads/` in development and in the persistent
+`listing-media` Docker volume in production. Include that volume alongside the
+database in backups.
 
 `users` → `auth_identities` (one row per linked provider) and `users` →
 `user_sessions`, both `ON DELETE CASCADE`. Users are not yet connected to the

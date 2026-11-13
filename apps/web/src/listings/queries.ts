@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, queryString } from "../api/client";
-import type { Listing, ListingLookup, ListingStatus, ListResponse } from "../api/types";
+import type {
+  Listing,
+  ListingLookup,
+  ListingPhoto,
+  ListingStatus,
+  ListResponse,
+} from "../api/types";
 
 export interface ListingFilters {
   q?: string;
@@ -17,6 +23,7 @@ export const listingKeys = {
   all: ["listings"] as const,
   list: (filters: ListingFilters) => ["listings", "list", filters] as const,
   detail: (id: string) => ["listings", "detail", id] as const,
+  photos: (id: string) => ["listings", "photos", id] as const,
 };
 
 export const useListings = (filters: ListingFilters) =>
@@ -32,6 +39,49 @@ export const useListing = (id: string | undefined) =>
     queryFn: () => api.get<{ listing: Listing }>(`/listings/${id}`),
     enabled: Boolean(id),
   });
+
+export const useListingPhotos = (id: string | undefined) =>
+  useQuery({
+    queryKey: listingKeys.photos(id ?? ""),
+    queryFn: () => api.get<{ photos: ListingPhoto[] }>(`/listings/${id}/photos`),
+    enabled: Boolean(id),
+  });
+
+export const listingPhotoUrl = (listingId: string, photoId: string): string =>
+  `/api/listings/${listingId}/photos/${photoId}/content`;
+
+export const useUploadListingPhotos = (listingId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    // One request per image stays within the proxy limit and lets the server
+    // reject a bad file without discarding the other files from the drop.
+    mutationFn: async (files: File[]) => {
+      const uploaded: ListingPhoto[] = [];
+      for (const file of files) {
+        const form = new FormData();
+        form.append("photo", file);
+        const result = await api.postForm<{ photo: ListingPhoto }>(
+          `/listings/${listingId}/photos`,
+          form
+        );
+        uploaded.push(result.photo);
+      }
+      return uploaded;
+    },
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: listingKeys.photos(listingId) }),
+  });
+};
+
+export const useDeleteListingPhoto = (listingId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (photoId: string) =>
+      api.delete<void>(`/listings/${listingId}/photos/${photoId}`),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: listingKeys.photos(listingId) }),
+  });
+};
 
 export type ListingInput = Partial<
   Pick<
@@ -51,6 +101,7 @@ export type ListingInput = Partial<
     | "yearBuilt"
     | "listedOn"
     | "sellerContactId"
+    | "externalLinks"
     | "notes"
   >
 >;

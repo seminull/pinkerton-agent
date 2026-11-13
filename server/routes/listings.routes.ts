@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { Op, type WhereOptions } from "sequelize";
 import type { AuthEnv } from "../auth";
 import { bigDistrictConfigured, lookupListing } from "../bigdistrict";
+import { removeAllListingPhotos } from "../listing-media";
 import { Contact, Listing } from "../sequelize/models";
 import {
   apiError,
@@ -30,6 +31,7 @@ const WRITABLE = [
   "yearBuilt",
   "listedOn",
   "sellerContactId",
+  "externalLinks",
   "notes",
 ] as const;
 
@@ -41,6 +43,63 @@ const SORT_FIELDS: Record<string, string> = {
   listPriceCents: "listPriceCents",
   listedOn: "listedOn",
   status: "status",
+};
+
+interface ExternalLink {
+  label: string;
+  url: string;
+}
+
+// Links are rendered as anchors on the detail page, so accept web URLs only.
+// The bounds also keep a single listing PATCH from becoming an unbounded JSON
+// storage endpoint while still allowing more portals than an agent will use.
+const normalizeExternalLinks = (value: unknown): ExternalLink[] => {
+  if (!Array.isArray(value) || value.length > 20) {
+    throw apiError(422, "invalid_external_links", {
+      externalLinks: "must be an array of at most 20 links",
+    });
+  }
+
+  return value.map((item, index) => {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
+      throw apiError(422, "invalid_external_links", {
+        [`externalLinks.${index}`]: "must contain a label and URL",
+      });
+    }
+
+    const source = item as Record<string, unknown>;
+    const label = typeof source.label === "string" ? source.label.trim() : "";
+    const url = typeof source.url === "string" ? source.url.trim() : "";
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw apiError(422, "invalid_external_links", {
+        [`externalLinks.${index}.url`]: "must be a valid web URL",
+      });
+    }
+
+    if (!label || label.length > 80 || url.length > 2000) {
+      throw apiError(422, "invalid_external_links", {
+        [`externalLinks.${index}`]: "label and URL are required and must fit",
+      });
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw apiError(422, "invalid_external_links", {
+        [`externalLinks.${index}.url`]: "must use http or https",
+      });
+    }
+
+    return { label, url };
+  });
+};
+
+const normalizeListingValues = (
+  values: Partial<Record<(typeof WRITABLE)[number], unknown>>
+): void => {
+  if (values.externalLinks !== undefined) {
+    values.externalLinks = normalizeExternalLinks(values.externalLinks);
+  }
 };
 
 // GET /api/listings/lookup — whether "Add with Zillow" is available, so the
@@ -129,6 +188,7 @@ app.get("/:id", async (c) => {
 app.post("/", async (c) => {
   const values = pickFields(await c.req.json(), WRITABLE);
   requireFields(values, REQUIRED_ON_CREATE);
+  normalizeListingValues(values);
   const listing = await Listing.create(values as never);
   return c.json({ listing }, 201);
 });
@@ -137,6 +197,7 @@ app.patch("/:id", async (c) => {
   const id = requireUuid(c.req.param("id"));
   const values = pickFields(await c.req.json(), WRITABLE);
   requireNonEmpty(values);
+  normalizeListingValues(values);
 
   const listing = await Listing.findByPk(id);
   if (!listing) throw apiError(404, "listing_not_found");
@@ -149,6 +210,11 @@ app.delete("/:id", async (c) => {
   const id = requireUuid(c.req.param("id"));
   const deleted = await Listing.destroy({ where: { id } });
   if (deleted === 0) throw apiError(404, "listing_not_found");
+  // The FK cascade removes metadata; the media directory is outside Postgres
+  // and must be removed separately after the listing itself is gone.
+  await removeAllListingPhotos(id).catch((error: unknown) => {
+    console.error(`Could not remove media for deleted listing ${id}:`, error);
+  });
   return c.body(null, 204);
 });
 

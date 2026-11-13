@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   ActionIcon,
   Alert,
+  Anchor,
   Badge,
   Button,
   Card,
@@ -16,7 +17,14 @@ import {
   Title,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconLink, IconPencil, IconPlus, IconSearch } from "@tabler/icons-react";
+import {
+  IconEye,
+  IconLink,
+  IconPencil,
+  IconPlus,
+  IconSearch,
+} from "@tabler/icons-react";
+import { Link } from "react-router";
 import type { Listing, ListingLookup, ListingStatus } from "../api/types";
 import { LISTING_STATUS_COLORS } from "../theme";
 import { formatDate, formatPriceCents, humanize } from "../format";
@@ -161,16 +169,16 @@ export default function Listings() {
                   <Table.Th>Sq ft</Table.Th>
                   <Table.Th>Seller</Table.Th>
                   <Table.Th>Listed</Table.Th>
-                  <Table.Th w={60} />
+                  <Table.Th w={92} />
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {data.results.map((listing) => (
                   <Table.Tr key={listing.id}>
                     <Table.Td>
-                      <Text size="sm" fw={500}>
+                      <Anchor component={Link} to={`/listings/${listing.id}`} size="sm" fw={500}>
                         {listing.addressLine1}
-                      </Text>
+                      </Anchor>
                       <Text size="xs" c="dimmed">
                         {listing.city}, {listing.state} {listing.postalCode}
                       </Text>
@@ -205,13 +213,23 @@ export default function Listings() {
                       <Text size="sm">{formatDate(listing.listedOn)}</Text>
                     </Table.Td>
                     <Table.Td>
-                      <ActionIcon
-                        variant="subtle"
-                        aria-label={`Edit ${listing.addressLine1}`}
-                        onClick={() => openEdit(listing)}
-                      >
-                        <IconPencil size={16} />
-                      </ActionIcon>
+                      <Group gap={2} wrap="nowrap">
+                        <ActionIcon
+                          component={Link}
+                          to={`/listings/${listing.id}`}
+                          variant="subtle"
+                          aria-label={`View ${listing.addressLine1}`}
+                        >
+                          <IconEye size={16} />
+                        </ActionIcon>
+                        <ActionIcon
+                          variant="subtle"
+                          aria-label={`Edit ${listing.addressLine1}`}
+                          onClick={() => openEdit(listing)}
+                        >
+                          <IconPencil size={16} />
+                        </ActionIcon>
+                      </Group>
                     </Table.Td>
                   </Table.Tr>
                 ))}

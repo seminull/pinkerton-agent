@@ -8,5 +8,6 @@ apps/web/dist
 *.log
 coverage
 backups
+uploads
 .vscode
 .idea

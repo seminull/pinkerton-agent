@@ -6,6 +6,7 @@ import Dashboard from "./routes/Dashboard";
 import Contacts from "./contacts/Contacts";
 import ContactDetail from "./contacts/ContactDetail";
 import Listings from "./listings/Listings";
+import ListingDetail from "./listings/ListingDetail";
 import Users from "./admin/Users";
 import TimeClock from "./timeclock/TimeClock";
 
@@ -23,6 +24,7 @@ export const routes: RouteObject[] = [
       { path: "contacts", element: <Contacts /> },
       { path: "contacts/:contactId", element: <ContactDetail /> },
       { path: "listings", element: <Listings /> },
+      { path: "listings/:listingId", element: <ListingDetail /> },
       { path: "time-clock", element: <TimeClock /> },
       // Reachable by URL for anyone signed in; the page itself turns away a
       // non-admin, and the API refuses them regardless.

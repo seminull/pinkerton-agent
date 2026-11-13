@@ -79,6 +79,10 @@ services:
       # the public BigDistrict.
       BIGDISTRICT_API_KEY: ${BIGDISTRICT_API_KEY:-}
       BIGDISTRICT_API_URL: ${BIGDISTRICT_API_URL:-}
+    volumes:
+      # Originals live outside the replaceable API container. Database rows
+      # keep the metadata; this volume keeps the bytes across deployments.
+      - listing-media:/app/uploads
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -126,3 +130,6 @@ services:
       start_period: 5s
     mem_limit: 128m
     <<: *capped-logging
+
+volumes:
+  listing-media:
