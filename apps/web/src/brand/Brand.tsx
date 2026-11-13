@@ -1,27 +1,32 @@
 import { Image, type StyleProp } from "@mantine/core";
 import logoDark from "./logo-dark.svg";
 import logoLight from "./logo-light.svg";
-import markDark from "./mark-circle-dark.svg";
-import markLight from "./mark-circle-light.svg";
+import markDark from "./pinkerton-agent-square-icon-dark.svg";
+import markLight from "./pinkerton-agent-square-icon-light.svg";
 
-// The brand artwork, in two cuts:
+// The brand artwork:
 //
 //   logo-*.svg         the doorway lockup — arch, key, and "Pinkerton Agent
 //                      Real Estate" lettering. For places with room: the
 //                      login screen.
-//   logo-circle-*.svg  the circular lockup, as supplied. The source artwork
-//                      for the header mark below; not rendered itself.
-//   mark-circle-*.svg  the ring and key alone, cropped square from the
-//                      circular lockup. For the app header, where the
-//                      lettering would be an unreadable smudge at 34px and
-//                      the name is set in text right beside it anyway.
+//   pinkerton-agent-square-icon-*.svg
+//                      the key in a square frame, no lettering. For the app
+//                      header, where lettering would be an unreadable smudge
+//                      at 34px and the name is set in text right beside it.
+//   pinkerton-agent-key-*.svg
+//                      the key alone, as supplied. The source for
+//                      public/favicon.svg (the browser tab icon): a frame
+//                      would eat most of a 16px tab icon, so the key goes
+//                      bare. The favicon is one file carrying both
+//                      colourings behind a prefers-color-scheme query,
+//                      because a <link rel="icon"> can't be swapped by
+//                      Mantine's CSS — if the key artwork changes, copy the
+//                      path into it again.
+//   logo-circle-*.svg, mark-circle-*.svg
+//                      the earlier circular lockup and its header crop.
+//                      Superseded by the square icon; not rendered.
 //
-// public/favicon.svg (the browser tab icon) is a square crop of the DOORWAY
-// lockup, not the circle.
-//
-// Each comes in a light-background and a dark-background colouring. The mark
-// files are derived from the logo files — if the artwork changes, re-cut them
-// rather than editing the two independently.
+// Each comes in a light-background and a dark-background colouring.
 
 interface Props {
   /**
