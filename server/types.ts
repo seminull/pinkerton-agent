@@ -109,3 +109,38 @@ export interface ListingLookup {
   zillowUrl: string;
   candidates: number;
 }
+
+/**
+ * One of the caller's share links on the Shared links tab, with its usage
+ * rolled up. The token is absent by design: only its hash exists.
+ */
+export interface TimeShareSummary {
+  id: string;
+  scope: "calendar" | "day";
+  day: string;
+  timeZone: string;
+  label: string | null;
+  /** Derived from revokedAt, so the client never re-implements the rule. */
+  status: "active" | "removed";
+  revokedAt: Date | null;
+  createdAt: Date;
+  /** Allowed page opens: the metadata request a viewer's first load makes. */
+  openCount: number;
+  /** Every allowed request, including each day and month looked at. */
+  requestCount: number;
+  uniqueIpCount: number;
+  lastAccessedAt: Date | null;
+  /** Requests refused because the link was removed or its owner disabled. */
+  blockedCount: number;
+}
+
+/** One row of a share link's access log. */
+export interface TimeShareAccessRecord {
+  id: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  resource: "share" | "entries" | "daily" | "summary";
+  detail: string | null;
+  outcome: "allowed" | "revoked" | "owner_disabled";
+  createdAt: Date;
+}

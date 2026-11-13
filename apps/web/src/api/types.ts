@@ -173,6 +173,43 @@ export interface TimeShare {
   createdAt: string;
 }
 
+export type TimeShareStatus = "active" | "removed";
+
+/**
+ * One of your own share links on the Shared links tab, with usage rolled up.
+ * There is no token: only its hash is stored, so a link can't be shown again.
+ */
+export interface TimeShareSummary {
+  id: string;
+  scope: TimeShareScope;
+  day: string;
+  timeZone: string;
+  label: string | null;
+  status: TimeShareStatus;
+  revokedAt: string | null;
+  createdAt: string;
+  /** Allowed page opens. */
+  openCount: number;
+  /** Every allowed request, including each day and month viewed. */
+  requestCount: number;
+  uniqueIpCount: number;
+  lastAccessedAt: string | null;
+  /** Requests refused after removal (or with the owner disabled). */
+  blockedCount: number;
+}
+
+/** One row of a share link's access log. */
+export interface TimeShareAccess {
+  id: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  resource: "share" | "entries" | "daily" | "summary";
+  /** The day (YYYY-MM-DD) or range (from..to) requested, when there was one. */
+  detail: string | null;
+  outcome: "allowed" | "revoked" | "owner_disabled";
+  createdAt: string;
+}
+
 /** A public entry. File references are omitted at the API boundary. */
 export interface SharedTimeEntry {
   id: string;

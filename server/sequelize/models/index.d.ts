@@ -153,8 +153,27 @@ export interface TimeShareAttributes {
   day: string;
   /** IANA time zone that defines the share's local calendar dates. */
   timeZone: string;
+  /** Owner's note for telling links apart; the URL can't be shown again. */
+  label: string | null;
+  /** Set = removed. The link stops working; its access log is kept. */
+  revokedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface TimeShareAccessAttributes {
+  id: string;
+  timeShareId: string;
+  /** The visitor's address as reported by the proxy, or the socket's. */
+  ipAddress: string | null;
+  userAgent: string | null;
+  /** share | entries | daily | summary */
+  resource: string;
+  /** The day or day range requested, when the endpoint takes one. */
+  detail: string | null;
+  /** allowed | revoked | owner_disabled */
+  outcome: string;
+  createdAt: Date;
 }
 
 interface TimeOptionBase {
@@ -217,6 +236,12 @@ export type TimeShareInstance = Model<
 > &
   TimeShareAttributes;
 
+export type TimeShareAccessInstance = Model<
+  TimeShareAccessAttributes,
+  Omit<TimeShareAccessAttributes, "id" | "createdAt">
+> &
+  TimeShareAccessAttributes;
+
 export type TimeCategoryInstance = Model<
   TimeCategoryAttributes,
   Omit<TimeCategoryAttributes, Generated>
@@ -238,5 +263,6 @@ export const AuthIdentity: ModelStatic<AuthIdentityInstance>;
 export const UserSession: ModelStatic<UserSessionInstance>;
 export const TimeEntry: ModelStatic<TimeEntryInstance>;
 export const TimeShare: ModelStatic<TimeShareInstance>;
+export const TimeShareAccess: ModelStatic<TimeShareAccessInstance>;
 export const TimeCategory: ModelStatic<TimeCategoryInstance>;
 export const TimeWorkType: ModelStatic<TimeWorkTypeInstance>;

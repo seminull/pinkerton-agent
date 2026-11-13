@@ -1,3 +1,6 @@
+import { isIP } from "node:net";
+import { getConnInfo } from "@hono/node-server/conninfo";
+import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 
@@ -97,4 +100,28 @@ export const requireNonEmpty = (values: Partial<Record<string, unknown>>): void 
   if (Object.keys(values).length === 0) {
     throw apiError(400, "no_updatable_fields_supplied");
   }
+};
+
+// The visitor's address, for audit logs. Not an authorization input anywhere.
+//
+// In production the API has no published port: every request arrives through
+// docker/nginx.conf, which overwrites X-Real-IP with Cloudflare's
+// CF-Connecting-IP (or its own socket peer when nothing is in front). So the
+// header is trustworthy there, and a client-sent X-Real-IP never survives the
+// proxy. In development nothing sets it and the socket address is used.
+//
+// net.isIP keeps a malformed header from being stored as if it were an
+// address; the IPv4-mapped prefix is dropped so 127.0.0.1 reads as itself.
+export const clientIp = (c: Context): string | null => {
+  const candidates = [c.req.header("x-real-ip")?.trim()];
+  try {
+    candidates.push(getConnInfo(c).remote.address);
+  } catch {
+    // Not running under @hono/node-server (e.g. app.request() in a test).
+  }
+  for (const raw of candidates) {
+    const address = raw?.replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/, "");
+    if (address && isIP(address)) return address;
+  }
+  return null;
 };

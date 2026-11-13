@@ -1,10 +1,11 @@
 import { Tabs, Title } from "@mantine/core";
-import { IconCalendar, IconClock, IconSettings } from "@tabler/icons-react";
+import { IconCalendar, IconClock, IconLink, IconSettings } from "@tabler/icons-react";
 import { useSearchParams } from "react-router";
 import PageStack from "../motion/PageStack";
 import CalendarTab from "./CalendarTab";
 import { formatDay, parseDay } from "./format";
 import SetupTab from "./SetupTab";
+import SharesTab from "./SharesTab";
 import TodayTab from "./TodayTab";
 
 // A ?day= value is only trusted if it is a real calendar date that isn't in the
@@ -19,7 +20,8 @@ const validDay = (raw: string | null, today: string): string | null => {
 };
 
 // The Time Clock page: a tab for working (Today), a tab for looking back
-// (Calendar), and a tab for the pick lists the other two use (Setup).
+// (Calendar), a tab for the links that share the Calendar (Shared links), and
+// a tab for the pick lists the others use (Setup).
 //
 // Which tab and which day are kept in the URL (?tab=calendar&day=2026-11-03)
 // rather than in component state, so a reload, a bookmark, or the Back button
@@ -29,13 +31,20 @@ export default function TimeClock() {
   const today = formatDay(new Date());
   // Anything unrecognised is Today — a mistyped ?tab= shouldn't be a blank page.
   const requested = params.get("tab");
-  const tab = requested === "calendar" || requested === "setup" ? requested : "today";
+  const tab =
+    requested === "calendar" || requested === "shares" || requested === "setup"
+      ? requested
+      : "today";
   const day = validDay(params.get("day"), today) ?? today;
 
   const showTab = (next: string | null) =>
     // Today is the default, so it gets the clean URL with no parameters.
     setParams(
-      next === "calendar" ? { tab: "calendar", day } : next === "setup" ? { tab: "setup" } : {}
+      next === "calendar"
+        ? { tab: "calendar", day }
+        : next === "shares" || next === "setup"
+          ? { tab: next }
+          : {}
     );
 
   const showDay = (next: string) =>
@@ -59,6 +68,9 @@ export default function TimeClock() {
           <Tabs.Tab value="calendar" leftSection={<IconCalendar size={16} />}>
             Calendar
           </Tabs.Tab>
+          <Tabs.Tab value="shares" leftSection={<IconLink size={16} />}>
+            Shared links
+          </Tabs.Tab>
           <Tabs.Tab value="setup" leftSection={<IconSettings size={16} />}>
             Setup
           </Tabs.Tab>
@@ -69,6 +81,9 @@ export default function TimeClock() {
         </Tabs.Panel>
         <Tabs.Panel value="calendar" pt="md">
           <CalendarTab day={day} onDayChange={showDay} />
+        </Tabs.Panel>
+        <Tabs.Panel value="shares" pt="md">
+          <SharesTab />
         </Tabs.Panel>
         <Tabs.Panel value="setup" pt="md">
           <SetupTab />

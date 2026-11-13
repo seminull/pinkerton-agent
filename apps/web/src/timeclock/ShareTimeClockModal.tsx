@@ -10,11 +10,13 @@ import {
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
+import { useQueryClient } from "@tanstack/react-query";
 import { IconCheck, IconCopy, IconLink } from "@tabler/icons-react";
 import { api } from "../api/client";
 import type { TimeShare, TimeShareScope } from "../api/types";
 import { describeError } from "./errors";
 import { formatLongDay } from "./format";
+import { shareLinkKeys } from "./shareLinkQueries";
 
 interface Props {
   scope: TimeShareScope;
@@ -23,7 +25,9 @@ interface Props {
 }
 
 interface CreatedShare extends TimeShare {
+  id: string;
   token: string;
+  label: string | null;
 }
 
 // The browser is the authority on which IANA zone the user's local dates use.
@@ -33,6 +37,8 @@ const TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 export default function ShareTimeClockModal({ scope, day, onClose }: Props) {
   const [creating, setCreating] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
+  const [linkLabel, setLinkLabel] = useState("");
+  const queryClient = useQueryClient();
 
   const label = scope === "calendar" ? "calendar" : formatLongDay(day);
 
@@ -43,7 +49,10 @@ export default function ShareTimeClockModal({ scope, day, onClose }: Props) {
         scope,
         day,
         timeZone: TIME_ZONE,
+        // Blank is "no label"; the server stores NULL, not "".
+        label: linkLabel.trim() || null,
       });
+      void queryClient.invalidateQueries({ queryKey: shareLinkKeys.all });
       setUrl(`${window.location.origin}/shared/time-clock/${response.share.token}`);
     } catch (error) {
       notifications.show({
@@ -61,7 +70,8 @@ export default function ShareTimeClockModal({ scope, day, onClose }: Props) {
       <Stack>
         <Text size="sm">
           Anyone with the link can view this {scope === "calendar" ? "calendar" : "day"}
-          {" "}without signing in. It is read-only, and file references are left out.
+          {" "}without signing in. It is read-only, and file references
+          are left out. You can see who opens it, and remove it, on the Shared links tab.
         </Text>
 
         {url ? (
@@ -84,14 +94,24 @@ export default function ShareTimeClockModal({ scope, day, onClose }: Props) {
             </Group>
           </>
         ) : (
-          <Group justify="flex-end">
-            <Button variant="default" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button leftSection={<IconLink size={16} />} loading={creating} onClick={createLink}>
-              Create share link
-            </Button>
-          </Group>
+          <>
+            <TextInput
+              label="Label"
+              description="Optional, and only you see it, on the Shared links tab. Who is it for?"
+              placeholder="For Dana, November hours"
+              maxLength={120}
+              value={linkLabel}
+              onChange={(event) => setLinkLabel(event.currentTarget.value)}
+            />
+            <Group justify="flex-end">
+              <Button variant="default" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button leftSection={<IconLink size={16} />} loading={creating} onClick={createLink}>
+                Create share link
+              </Button>
+            </Group>
+          </>
         )}
       </Stack>
     </Modal>

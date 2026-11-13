@@ -16,12 +16,16 @@ module.exports = (sequelize, DataTypes) => {
       scope: { type: DataTypes.STRING(16), allowNull: false },
       day: { type: DataTypes.DATEONLY, allowNull: false },
       timeZone: { type: DataTypes.STRING(100), allowNull: false },
+      label: { type: DataTypes.STRING(120), allowNull: true },
+      // Soft delete: a removed link stops working but keeps its access log.
+      revokedAt: { type: DataTypes.DATE, allowNull: true },
     },
     { tableName: 'time_shares' }
   );
 
   TimeShare.associate = (models) => {
     TimeShare.belongsTo(models.User, { foreignKey: 'userId', as: 'user' });
+    TimeShare.hasMany(models.TimeShareAccess, { foreignKey: 'timeShareId', as: 'accesses' });
   };
 
   return TimeShare;

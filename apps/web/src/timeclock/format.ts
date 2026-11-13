@@ -62,6 +62,17 @@ export const parseDay = (day: string): Date => {
   return new Date(year!, month! - 1, date!);
 };
 
+/** An ISO instant -> "Nov 12, 2026, 3:04:05 PM", in the browser's zone. */
+export const formatInstant = (iso: string): string =>
+  new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
 /** "2026-11-12" -> "Thursday, November 12, 2026". */
 export const formatLongDay = (day: string): string =>
   parseDay(day).toLocaleDateString("en-US", {

@@ -7,6 +7,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   no_task_running: "That task was already stopped.",
   time_entry_not_found: "That entry was already deleted.",
   task_still_running: "That task is still running — stop it before editing it.",
+  time_share_not_found: "That share link no longer exists.",
 };
 
 export const describeError = (error: unknown): string =>
