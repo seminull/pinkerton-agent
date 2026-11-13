@@ -73,7 +73,7 @@ export default function RootLayout() {
               <Menu.Target>
                 <UnstyledButton ml="auto" aria-label="Account menu">
                   <Group gap="xs">
-                    <Avatar src={user.avatarUrl} size="sm" radius="xl" color="indigo">
+                    <Avatar src={user.avatarUrl} size="sm" radius="xl" color="rose">
                       {(user.firstName[0] ?? user.email[0] ?? "").toUpperCase()}
                     </Avatar>
                     <Text size="sm" visibleFrom="sm">
