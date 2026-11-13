@@ -4,7 +4,8 @@ import * as m from "motion/react-m";
 import type { TimeEntry } from "../api/types";
 import EditEntryModal from "./EditEntryModal";
 import { formatDuration } from "./format";
-import { useActiveEntry, useTimeEntries, type TimeRange } from "./queries";
+import { classifier } from "./options";
+import { useActiveEntry, useTimeEntries, useTimeOptions, type TimeRange } from "./queries";
 import {
   buildLayout,
   MAX_ENTRIES,
@@ -86,9 +87,16 @@ export default function DayTimeline({ range, emptyText }: Props) {
     return () => clearInterval(timer);
   }, [running]);
 
+  // Segment colours follow the user's own Setup: a category they marked as a
+  // break is drawn as one. Until the lists load everything draws as work, and
+  // recolours when they arrive.
+  const options = useTimeOptions();
   const layout = useMemo(
-    () => (entries.data ? buildLayout(entries.data.results, running, now) : null),
-    [entries.data, running, now]
+    () =>
+      entries.data
+        ? buildLayout(entries.data.results, running, now, classifier(options.data))
+        : null,
+    [entries.data, running, now, options.data]
   );
 
   // Quiet while loading: this sits above a table that already shows a spinner,

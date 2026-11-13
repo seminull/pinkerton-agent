@@ -3,6 +3,7 @@ import { Op, QueryTypes, UniqueConstraintError, type WhereOptions } from "sequel
 import type { AuthEnv } from "../auth";
 import { apiError, parsePage, pickFields, requireNonEmpty, requireUuid } from "../http";
 import { sequelize, TimeEntry } from "../sequelize/models";
+import { activeOptionNames, withTimeOptions } from "../time-options";
 import type { TimeDayTotals, TimeSummary } from "../types";
 
 // Mounted at /api/time-entries. The Time Clock: start a task, stop it, and the
@@ -20,34 +21,26 @@ import type { TimeDayTotals, TimeSummary } from "../types";
 
 const app = new Hono<AuthEnv>();
 
-// The pick lists. Mirrored in apps/web/src/timeclock/options.ts for the
-// dropdowns; this copy is the one that is enforced.
-const CATEGORIES = [
-  "Closing Preparation",
-  "Title / Curative",
-  "Email / Correspondence",
-  "Phone Calls / Interruptions",
-  "HOA / Survey / Payoffs",
-  "Qualia / Administration",
-  "Assistant Training / Delegation",
-  "Assistant Work Review",
-  "Escalations / Rework",
-  "Time Study Administration",
-  "Lunch / Break",
-  "Other",
-] as const;
+// Categories and work types are each user's own lists (the Setup tab — see
+// routes/time-options.routes.ts). This makes sure the signed-in user has theirs
+// before any route below validates against them or joins to them.
+app.use("*", withTimeOptions);
 
-const WORK_TYPES = [
-  "My work",
-  "Training / supervising assistant",
-  "Reviewing assistant work",
-  "Assistant work (not my time)",
-] as const;
-
-// The two values the totals treat specially. Named so the SQL below and the
-// lists above can't drift apart silently if a label is reworded.
-const BREAK_CATEGORY: (typeof CATEGORIES)[number] = "Lunch / Break";
-const ASSISTANT_WORK_TYPE: (typeof WORK_TYPES)[number] = "Assistant work (not my time)";
+// How the totals decide what an entry counts as. Entries store their category
+// and work type as text; these joins look each up in the user's own lists to
+// find out whether it is a break and whether it is their own time.
+//
+// LEFT JOIN + COALESCE(false): an entry whose name matches no row counts as
+// ordinary work. That shouldn't happen — a rename updates the entries and a
+// used option can only be archived, not deleted — but if it ever does, the
+// honest fallback is "work", not dropping the time from every total.
+//
+// Fixed strings with no request data in them, so they are safe to splice into
+// the two queries below.
+const CLASSIFY = `COALESCE(c."isBreak", false) AS is_break,
+              COALESCE(NOT w."countsAsOwnTime", false) AS is_assistant`;
+const CLASSIFY_JOINS = `LEFT JOIN time_categories c ON c."userId" = e."userId" AND c.name = e.category
+         LEFT JOIN time_work_types w ON w."userId" = e."userId" AND w.name = e."workType"`;
 
 const WRITABLE_ON_START = ["category", "task", "reference", "workType", "notes"] as const;
 const WRITABLE_ON_EDIT = [...WRITABLE_ON_START, "startedAt", "endedAt"] as const;
@@ -139,22 +132,20 @@ app.get("/summary", async (c) => {
 
   const [row] = await sequelize.query<TimeSummary>(
     `SELECT
-       COALESCE(SUM(minutes) FILTER (
-         WHERE category <> :breakCategory AND "workType" <> :assistantWorkType), 0)::int
+       COALESCE(SUM(minutes) FILTER (WHERE NOT is_break AND NOT is_assistant), 0)::int
          AS "workMinutes",
-       COALESCE(SUM(minutes) FILTER (WHERE category = :breakCategory), 0)::int
-         AS "breakMinutes",
-       COALESCE(SUM(minutes) FILTER (WHERE "workType" = :assistantWorkType), 0)::int
-         AS "assistantMinutes",
+       COALESCE(SUM(minutes) FILTER (WHERE is_break), 0)::int AS "breakMinutes",
+       COALESCE(SUM(minutes) FILTER (WHERE is_assistant), 0)::int AS "assistantMinutes",
        COUNT(*)::int AS "entryCount"
      FROM (
-       SELECT category, "workType",
-              GREATEST(0, ROUND(EXTRACT(EPOCH FROM ("endedAt" - "startedAt")) / 60)) AS minutes
-         FROM time_entries
-        WHERE "userId" = :userId
-          AND "endedAt" IS NOT NULL
-          AND (CAST(:from AS timestamptz) IS NULL OR "startedAt" >= :from)
-          AND (CAST(:to AS timestamptz) IS NULL OR "startedAt" < :to)
+       SELECT ${CLASSIFY},
+              GREATEST(0, ROUND(EXTRACT(EPOCH FROM (e."endedAt" - e."startedAt")) / 60)) AS minutes
+         FROM time_entries e
+         ${CLASSIFY_JOINS}
+        WHERE e."userId" = :userId
+          AND e."endedAt" IS NOT NULL
+          AND (CAST(:from AS timestamptz) IS NULL OR e."startedAt" >= :from)
+          AND (CAST(:to AS timestamptz) IS NULL OR e."startedAt" < :to)
      ) AS completed`,
     {
       type: QueryTypes.SELECT,
@@ -162,8 +153,6 @@ app.get("/summary", async (c) => {
         userId: c.get("auth").user.id,
         from,
         to,
-        breakCategory: BREAK_CATEGORY,
-        assistantWorkType: ASSISTANT_WORK_TYPE,
       },
     }
   );
@@ -202,23 +191,21 @@ app.get("/daily", async (c) => {
   const days = await sequelize.query<TimeDayTotals>(
     `SELECT
        to_char(day, 'YYYY-MM-DD') AS day,
-       COALESCE(SUM(minutes) FILTER (
-         WHERE category <> :breakCategory AND "workType" <> :assistantWorkType), 0)::int
+       COALESCE(SUM(minutes) FILTER (WHERE NOT is_break AND NOT is_assistant), 0)::int
          AS "workMinutes",
-       COALESCE(SUM(minutes) FILTER (WHERE category = :breakCategory), 0)::int
-         AS "breakMinutes",
-       COALESCE(SUM(minutes) FILTER (WHERE "workType" = :assistantWorkType), 0)::int
-         AS "assistantMinutes",
+       COALESCE(SUM(minutes) FILTER (WHERE is_break), 0)::int AS "breakMinutes",
+       COALESCE(SUM(minutes) FILTER (WHERE is_assistant), 0)::int AS "assistantMinutes",
        COUNT(*)::int AS "entryCount"
      FROM (
-       SELECT category, "workType",
-              ("startedAt" AT TIME ZONE :tz)::date AS day,
-              GREATEST(0, ROUND(EXTRACT(EPOCH FROM ("endedAt" - "startedAt")) / 60)) AS minutes
-         FROM time_entries
-        WHERE "userId" = :userId
-          AND "endedAt" IS NOT NULL
-          AND (CAST(:from AS timestamptz) IS NULL OR "startedAt" >= :from)
-          AND (CAST(:to AS timestamptz) IS NULL OR "startedAt" < :to)
+       SELECT ${CLASSIFY},
+              (e."startedAt" AT TIME ZONE :tz)::date AS day,
+              GREATEST(0, ROUND(EXTRACT(EPOCH FROM (e."endedAt" - e."startedAt")) / 60)) AS minutes
+         FROM time_entries e
+         ${CLASSIFY_JOINS}
+        WHERE e."userId" = :userId
+          AND e."endedAt" IS NOT NULL
+          AND (CAST(:from AS timestamptz) IS NULL OR e."startedAt" >= :from)
+          AND (CAST(:to AS timestamptz) IS NULL OR e."startedAt" < :to)
      ) AS completed
      GROUP BY day
      ORDER BY day`,
@@ -229,8 +216,6 @@ app.get("/daily", async (c) => {
         from,
         to,
         tz: parseTimeZone(query.tz),
-        breakCategory: BREAK_CATEGORY,
-        assistantWorkType: ASSISTANT_WORK_TYPE,
       },
     }
   );
@@ -246,8 +231,10 @@ app.post("/start", async (c) => {
   if (!task || task.length > MAX_TASK) {
     details.task = `Enter a task description (up to ${MAX_TASK} characters).`;
   }
-  if (!CATEGORIES.includes(values.category as never)) details.category = "Choose a category.";
-  if (!WORK_TYPES.includes(values.workType as never)) details.workType = "Choose a work type.";
+  // Only what is currently offered — an archived option can't start new time.
+  const allowed = await activeOptionNames(c.get("auth").user.id);
+  if (!allowed.categories.has(values.category as string)) details.category = "Choose a category.";
+  if (!allowed.workTypes.has(values.workType as string)) details.workType = "Choose a work type.";
   if (Object.keys(details).length > 0) throw apiError(422, "validation_failed", details);
 
   try {
@@ -309,12 +296,20 @@ app.patch("/:id", async (c) => {
     }
     changes.task = task;
   }
+  // An edit may keep the value the entry already has even if that option has
+  // since been archived — otherwise fixing a typo in an old entry's notes would
+  // force recategorising it. Anything it CHANGES to must be currently offered.
+  const allowed = await activeOptionNames(c.get("auth").user.id);
   if ("category" in values) {
-    if (!CATEGORIES.includes(values.category as never)) details.category = "Choose a category.";
+    if (values.category !== entry.category && !allowed.categories.has(values.category as string)) {
+      details.category = "Choose a category.";
+    }
     changes.category = values.category;
   }
   if ("workType" in values) {
-    if (!WORK_TYPES.includes(values.workType as never)) details.workType = "Choose a work type.";
+    if (values.workType !== entry.workType && !allowed.workTypes.has(values.workType as string)) {
+      details.workType = "Choose a work type.";
+    }
     changes.workType = values.workType;
   }
 

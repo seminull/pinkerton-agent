@@ -51,3 +51,18 @@ export interface TimeDayTotals extends TimeSummary {
   /** The local calendar day, YYYY-MM-DD, in the zone the request named. */
   day: string;
 }
+
+/**
+ * A Time Clock category or work type, as the Setup tab sees it. A category
+ * carries `isBreak`; a work type carries `countsAsOwnTime`.
+ */
+export interface TimeOption {
+  id: string;
+  name: string;
+  /** Hidden from the dropdowns, kept because past entries use it. */
+  archived: boolean;
+  /** How many of the user's entries use this name. 0 = safe to delete. */
+  entryCount: number;
+  isBreak?: boolean;
+  countsAsOwnTime?: boolean;
+}

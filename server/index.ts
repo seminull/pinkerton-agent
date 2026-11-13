@@ -11,6 +11,7 @@ import authRoutes from "./routes/auth.routes";
 import contactRoutes from "./routes/contacts.routes";
 import listingRoutes from "./routes/listings.routes";
 import timeEntryRoutes from "./routes/time-entries.routes";
+import timeOptionRoutes from "./routes/time-options.routes";
 import activityRoutes from "./routes/activities.routes";
 
 const port = parseInt(process.env.PORT ?? "", 10) || 3040;
@@ -101,6 +102,7 @@ app.route("/api/contacts", contactRoutes);
 app.route("/api/listings", listingRoutes);
 app.route("/api/activities", activityRoutes);
 app.route("/api/time-entries", timeEntryRoutes);
+app.route("/api/time-options", timeOptionRoutes);
 
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`Running at http://localhost:${info.port}`);

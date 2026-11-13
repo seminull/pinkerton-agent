@@ -1,12 +1,12 @@
 import type { TimeEntry } from "../api/types";
-import { ASSISTANT_WORK_TYPE, BREAK_CATEGORY } from "./options";
+import type { EntryKind } from "./options";
 
 // The arithmetic behind DayTimeline: turning a day's entries into positioned
 // blocks, the gaps between them, and an hour axis. Kept apart from the
 // component so it is plain data in, plain data out — nothing here knows about
 // React, pixels, or colours.
 
-export type Kind = "work" | "break" | "assistant";
+export type Kind = EntryKind;
 
 export interface Block {
   entry: TimeEntry;
@@ -28,13 +28,6 @@ export const MINUTE = 60_000;
 // more entries than this gets a note rather than a silently partial picture.
 export const MAX_ENTRIES = 100;
 
-const kindOf = (entry: TimeEntry): Kind =>
-  entry.category === BREAK_CATEGORY
-    ? "break"
-    : entry.workType === ASSISTANT_WORK_TYPE
-      ? "assistant"
-      : "work";
-
 export const minutesBetween = (start: number, end: number): number =>
   Math.max(0, Math.round((end - start) / MINUTE));
 
@@ -50,7 +43,14 @@ export interface Layout {
   gapMinutes: number;
 }
 
-export const buildLayout = (entries: TimeEntry[], running: TimeEntry | null, now: number): Layout | null => {
+export const buildLayout = (
+  entries: TimeEntry[],
+  running: TimeEntry | null,
+  now: number,
+  // Passed in rather than imported: what counts as a break is the user's own
+  // Setup data, which this module — pure arithmetic — has no business fetching.
+  kindOf: (entry: TimeEntry) => Kind
+): Layout | null => {
   const blocks: Block[] = [
     ...entries.map((entry) => ({
       entry,

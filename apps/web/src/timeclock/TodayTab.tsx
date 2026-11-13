@@ -20,8 +20,14 @@ import DayTimeline from "./DayTimeline";
 import EntriesTable from "./EntriesTable";
 import { describeError } from "./errors";
 import { dayRange, formatClockTime, formatDuration, formatElapsed, parseDay } from "./format";
-import { CATEGORIES, WORK_TYPES } from "./options";
-import { useActiveEntry, useStartTask, useStopTask, useTimeSummary } from "./queries";
+import { activeNames } from "./options";
+import {
+  useActiveEntry,
+  useStartTask,
+  useStopTask,
+  useTimeOptions,
+  useTimeSummary,
+} from "./queries";
 import Stat from "./Stat";
 import { useToday } from "./useToday";
 
@@ -53,11 +59,14 @@ function RunningClock({ startedAt }: { startedAt: string | null }) {
   );
 }
 
+// Category and work type start empty and are resolved against the user's lists
+// at render time (see `chosen` below): the lists arrive from the server after
+// this state is created, and can change on the Setup tab while it exists.
 const BLANK = {
-  category: CATEGORIES[0]!,
+  category: "",
   task: "",
   reference: "",
-  workType: WORK_TYPES[0]!,
+  workType: "",
   notes: "",
 };
 
@@ -78,6 +87,18 @@ export default function TodayTab() {
 
   const running = active.data?.entry ?? null;
 
+  const options = useTimeOptions();
+  const categories = activeNames(options.data?.categories);
+  const workTypes = activeNames(options.data?.workTypes);
+  // What the dropdowns actually hold: the user's pick if it is still offered,
+  // otherwise the first option. That covers both the first render (nothing
+  // picked yet) and a pick that was archived on the Setup tab a moment ago —
+  // either way the form never shows, or submits, a value that isn't in the list.
+  const chosen = {
+    category: categories.includes(fields.category) ? fields.category : (categories[0] ?? ""),
+    workType: workTypes.includes(fields.workType) ? fields.workType : (workTypes[0] ?? ""),
+  };
+
   // While a task runs, the form shows THAT task, read-only — including after a
   // reload or on another device, where the local field state would be blank.
   // What is on screen is always what is being timed.
@@ -89,7 +110,7 @@ export default function TodayTab() {
         workType: running.workType,
         notes: running.notes ?? "",
       }
-    : fields;
+    : { ...fields, ...chosen };
   const locked = Boolean(running);
 
   const set = (patch: Partial<typeof BLANK>) => setFields((current) => ({ ...current, ...patch }));
@@ -103,11 +124,11 @@ export default function TodayTab() {
     setTaskError(null);
     start.mutate(
       {
-        category: fields.category,
+        category: chosen.category,
         task,
         // Blank optional fields go as null, not "" — nullable means unknown.
         reference: fields.reference.trim() || null,
-        workType: fields.workType,
+        workType: chosen.workType,
         notes: fields.notes.trim() || null,
       },
       {
@@ -154,7 +175,7 @@ export default function TodayTab() {
             <Grid.Col span={{ base: 12, sm: 4 }}>
               <Select
                 label="Category"
-                data={CATEGORIES}
+                data={categories.includes(shown.category) ? categories : [shown.category, ...categories]}
                 allowDeselect={false}
                 disabled={locked}
                 value={shown.category}
@@ -195,7 +216,7 @@ export default function TodayTab() {
             <Grid.Col span={{ base: 12, sm: 4 }}>
               <Select
                 label="Work type"
-                data={WORK_TYPES}
+                data={workTypes.includes(shown.workType) ? workTypes : [shown.workType, ...workTypes]}
                 allowDeselect={false}
                 disabled={locked}
                 value={shown.workType}
@@ -226,7 +247,7 @@ export default function TodayTab() {
               onClick={handleStart}
               // Also off until the first load answers: starting before knowing
               // whether something is already running just earns a 409.
-              disabled={locked || !active.data}
+              disabled={locked || !active.data || !options.data}
               loading={start.isPending}
             >
               Start task

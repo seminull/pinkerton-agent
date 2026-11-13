@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, queryString } from "../api/client";
-import type { ListResponse, TimeDayTotals, TimeEntry, TimeSummary } from "../api/types";
+import type {
+  ListResponse,
+  TimeDayTotals,
+  TimeEntry,
+  TimeOption,
+  TimeOptions,
+  TimeSummary,
+} from "../api/types";
 
 export const timeKeys = {
   all: ["time-entries"] as const,
@@ -142,4 +149,71 @@ export const fetchAllTimeEntries = async (): Promise<TimeEntry[]> => {
     if (page.results.length < EXPORT_PAGE || all.length >= page.total) break;
   }
   return all.reverse();
+};
+
+// --- Setup: categories and work types ---------------------------------------
+
+export const timeOptionKeys = { all: ["time-options"] as const };
+
+/** Which of the two lists a Setup request is about; also its URL segment. */
+export type OptionList = "categories" | "work-types";
+
+export const useTimeOptions = () =>
+  useQuery({
+    queryKey: timeOptionKeys.all,
+    queryFn: () => api.get<TimeOptions>("/time-options"),
+  });
+
+// A change on the Setup tab can alter far more than the lists: renaming a
+// category rewrites the entries that use it, and flipping "counts as a break"
+// moves time between totals. So every Setup mutation refreshes the options AND
+// the whole time-entries tree, rather than guessing which totals moved.
+const useInvalidateOptions = () => {
+  const queryClient = useQueryClient();
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: timeOptionKeys.all }),
+      queryClient.invalidateQueries({ queryKey: timeKeys.all }),
+    ]);
+};
+
+export type OptionPatch = Partial<
+  Pick<TimeOption, "name" | "archived" | "isBreak" | "countsAsOwnTime">
+>;
+
+export const useCreateOption = (list: OptionList) => {
+  const invalidate = useInvalidateOptions();
+  return useMutation({
+    mutationFn: (input: OptionPatch & { name: string }) =>
+      api.post<{ option: TimeOption }>(`/time-options/${list}`, input),
+    onSuccess: invalidate,
+  });
+};
+
+export const useUpdateOption = (list: OptionList) => {
+  const invalidate = useInvalidateOptions();
+  return useMutation({
+    mutationFn: ({ id, ...patch }: OptionPatch & { id: string }) =>
+      api.patch<{ option: TimeOption }>(`/time-options/${list}/${id}`, patch),
+    onSuccess: invalidate,
+  });
+};
+
+export const useDeleteOption = (list: OptionList) => {
+  const invalidate = useInvalidateOptions();
+  return useMutation({
+    mutationFn: (id: string) => api.delete<void>(`/time-options/${list}/${id}`),
+    onSuccess: invalidate,
+  });
+};
+
+export const useReorderOptions = (list: OptionList) => {
+  const invalidate = useInvalidateOptions();
+  return useMutation({
+    mutationFn: (ids: string[]) =>
+      api.post<{ options: TimeOption[] }>(`/time-options/${list}/reorder`, { ids }),
+    // onSettled: a failed reorder should snap the list back to what the
+    // server actually has.
+    onSettled: invalidate,
+  });
 };

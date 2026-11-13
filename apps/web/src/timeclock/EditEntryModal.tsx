@@ -5,8 +5,8 @@ import { ApiError } from "../api/client";
 import type { TimeEntry } from "../api/types";
 import { describeError } from "./errors";
 import { formatDay, formatDuration, formatLongDay, fromLocalInput, toLocalInput } from "./format";
-import { CATEGORIES, WORK_TYPES } from "./options";
-import { useUpdateTimeEntry } from "./queries";
+import { namesIncluding } from "./options";
+import { useTimeOptions, useUpdateTimeEntry } from "./queries";
 
 interface Props {
   /** The entry being edited. The caller only renders this while there is one. */
@@ -21,6 +21,7 @@ interface Props {
 // always that entry's values and nothing has to be reset by hand.
 export default function EditEntryModal({ entry, onClose }: Props) {
   const update = useUpdateTimeEntry();
+  const options = useTimeOptions();
   const [fields, setFields] = useState({
     category: entry.category,
     task: entry.task,
@@ -119,7 +120,7 @@ export default function EditEntryModal({ entry, onClose }: Props) {
           <SimpleGrid cols={{ base: 1, xs: 2 }}>
             <Select
               label="Category"
-              data={CATEGORIES}
+              data={namesIncluding(options.data?.categories, fields.category)}
               allowDeselect={false}
               value={fields.category}
               error={serverErrors.category}
@@ -127,7 +128,7 @@ export default function EditEntryModal({ entry, onClose }: Props) {
             />
             <Select
               label="Work type"
-              data={WORK_TYPES}
+              data={namesIncluding(options.data?.workTypes, fields.workType)}
               allowDeselect={false}
               value={fields.workType}
               error={serverErrors.workType}

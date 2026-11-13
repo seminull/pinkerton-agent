@@ -127,6 +127,29 @@ export interface TimeEntryAttributes {
   updatedAt: Date;
 }
 
+interface TimeOptionBase {
+  id: string;
+  userId: string;
+  /** Unique per user. Entries store this text, so a rename updates them too. */
+  name: string;
+  /** Order in the dropdown. */
+  position: number;
+  /** Set = hidden from the dropdowns, kept for past entries. */
+  archivedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TimeCategoryAttributes extends TimeOptionBase {
+  /** Break time is reported separately and left out of work time. */
+  isBreak: boolean;
+}
+
+export interface TimeWorkTypeAttributes extends TimeOptionBase {
+  /** False for work someone else did: tracked, but not the user's own time. */
+  countsAsOwnTime: boolean;
+}
+
 // Columns the database or Sequelize fills in, so `create()` doesn't demand them.
 type Generated = "id" | "createdAt" | "updatedAt";
 
@@ -153,6 +176,17 @@ export type TimeEntryInstance = Model<
 > &
   TimeEntryAttributes;
 
+export type TimeCategoryInstance = Model<
+  TimeCategoryAttributes,
+  Omit<TimeCategoryAttributes, Generated>
+> &
+  TimeCategoryAttributes;
+export type TimeWorkTypeInstance = Model<
+  TimeWorkTypeAttributes,
+  Omit<TimeWorkTypeAttributes, Generated>
+> &
+  TimeWorkTypeAttributes;
+
 export const sequelize: Sequelize;
 export const Contact: ModelStatic<ContactInstance>;
 export const Listing: ModelStatic<ListingInstance>;
@@ -161,3 +195,5 @@ export const User: ModelStatic<UserInstance>;
 export const AuthIdentity: ModelStatic<AuthIdentityInstance>;
 export const UserSession: ModelStatic<UserSessionInstance>;
 export const TimeEntry: ModelStatic<TimeEntryInstance>;
+export const TimeCategory: ModelStatic<TimeCategoryInstance>;
+export const TimeWorkType: ModelStatic<TimeWorkTypeInstance>;
