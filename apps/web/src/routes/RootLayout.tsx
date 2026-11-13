@@ -5,18 +5,17 @@ import {
   Divider,
   Group,
   Menu,
-  NavLink,
   Text,
   Title,
   UnstyledButton,
+  useMantineTheme,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useLocalStorage, useMediaQuery } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
   IconAddressBook,
   IconBuildingCommunity,
   IconClock,
-  IconExternalLink,
   IconHome,
   IconHome2,
   IconHomeSearch,
@@ -26,10 +25,11 @@ import {
   IconLogout,
   IconUsers,
 } from "@tabler/icons-react";
-import { Link, Outlet, useLocation } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import { useAuth } from "../auth/authContext";
 import { BrandMark } from "../brand/Brand";
 import ColorSchemeToggle from "./ColorSchemeToggle";
+import SidebarLink from "./SidebarLink";
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: IconLayoutDashboard },
@@ -50,11 +50,35 @@ const EXTERNAL_LINKS = [
   { href: "https://www.redfin.com", label: "Redfin", icon: IconMapSearch },
 ];
 
+// Sidebar widths. The mini width fits the 18px icons with NavLink's own
+// padding on each side, inside the navbar's xs padding and 1px border.
+const FULL_WIDTH = 220;
+const MINI_WIDTH = 64;
+
 export default function RootLayout() {
   // One disclosure drives the mobile burger; on desktop the navbar is always
   // open, so `desktop: false` keeps it pinned regardless of this state.
-  const [opened, { toggle }] = useDisclosure();
+  const [opened, { toggle, close: closeMobile }] = useDisclosure();
   const { pathname } = useLocation();
+  const theme = useMantineTheme();
+
+  // The mini sidebar is a preference, so it's remembered in this browser
+  // rather than per account — a laptop and a wide monitor can differ.
+  // getInitialValueInEffect: false reads it during the first render; the
+  // default (built for server rendering) would draw the full sidebar first and
+  // then snap it narrow on every page load.
+  const [mini, setMini] = useLocalStorage({
+    key: "pinkerton-sidebar-mini",
+    defaultValue: false,
+    getInitialValueInEffect: false,
+  });
+  // Below the breakpoint the navbar is a full-width drawer, where an icon rail
+  // makes no sense — so the preference only applies on desktop, and is kept
+  // (not cleared) while the window is narrow.
+  const desktop = useMediaQuery(`(min-width: ${theme.breakpoints.sm})`, undefined, {
+    getInitialValueInEffect: false,
+  });
+  const compact = mini && desktop;
   const { user, logout } = useAuth();
 
   const signOut = () => {
@@ -74,7 +98,7 @@ export default function RootLayout() {
     <AppShell
       header={{ height: 56 }}
       navbar={{
-        width: 220,
+        width: compact ? MINI_WIDTH : FULL_WIDTH,
         breakpoint: "sm",
         collapsed: { mobile: !opened, desktop: false },
       }}
@@ -82,7 +106,25 @@ export default function RootLayout() {
     >
       <AppShell.Header>
         <Group h="100%" px="md" gap="sm">
-          <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+          {/* Two burgers, one per breakpoint, because they do different jobs:
+              on phones the navbar is an overlay drawer that opens and closes;
+              on desktop it never closes, only narrows. */}
+          <Burger
+            opened={opened}
+            onClick={toggle}
+            hiddenFrom="sm"
+            size="sm"
+            aria-label={opened ? "Close navigation" : "Open navigation"}
+          />
+          {/* Not passed `opened`, so it stays three lines: an X would read as
+              "close the sidebar", and this only narrows it. */}
+          <Burger
+            onClick={() => setMini((was) => !was)}
+            visibleFrom="sm"
+            size="sm"
+            aria-label={mini ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!mini}
+          />
           <BrandMark h={34} />
           <Title order={4}>Pinkerton Agent</Title>
           <Text size="xs" c="dimmed">
@@ -122,37 +164,31 @@ export default function RootLayout() {
       </AppShell.Header>
 
       <AppShell.Navbar p="xs">
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-          <NavLink
+        {NAV_ITEMS.map(({ to, label, icon }) => (
+          <SidebarLink
             key={to}
-            component={Link}
             to={to}
             label={label}
-            leftSection={<Icon size={18} stroke={1.5} />}
+            icon={icon}
             // Exact match for "/" only — otherwise the Dashboard link would
             // stay highlighted on every page.
             active={to === "/" ? pathname === "/" : pathname.startsWith(to)}
-            onClick={() => opened && toggle()}
+            compact={compact}
+            onNavigate={closeMobile}
           />
         ))}
 
-        <Divider my="xs" label="Links" labelPosition="left" />
-        {EXTERNAL_LINKS.map(({ href, label, icon: Icon }) => (
-          // Off-site, so a plain <a>, not a router Link, and never "active".
-          // A new tab, so a lookup doesn't navigate away from a half-filled
-          // form here; the trailing icon says so before the click. noopener
-          // stops that tab reaching back through window.opener, and noreferrer
-          // keeps our URLs (which carry record ids) out of third-party logs.
-          <NavLink
+        {/* The rail is too narrow for a heading, so the divider stays as a
+            plain rule there — it still separates the groups. */}
+        <Divider my="xs" label={compact ? undefined : "Links"} labelPosition="left" />
+        {EXTERNAL_LINKS.map(({ href, label, icon }) => (
+          <SidebarLink
             key={href}
-            component="a"
             href={href}
-            target="_blank"
-            rel="noopener noreferrer"
             label={label}
-            leftSection={<Icon size={18} stroke={1.5} />}
-            rightSection={<IconExternalLink size={14} stroke={1.5} />}
-            onClick={() => opened && toggle()}
+            icon={icon}
+            compact={compact}
+            onNavigate={closeMobile}
           />
         ))}
 
@@ -160,14 +196,14 @@ export default function RootLayout() {
             page and the API each check the role themselves. */}
         {user?.role === "admin" && (
           <>
-            <Divider my="xs" label="Admin" labelPosition="left" />
-            <NavLink
-              component={Link}
+            <Divider my="xs" label={compact ? undefined : "Admin"} labelPosition="left" />
+            <SidebarLink
               to="/admin/users"
               label="Users"
-              leftSection={<IconUsers size={18} stroke={1.5} />}
+              icon={IconUsers}
               active={pathname.startsWith("/admin/users")}
-              onClick={() => opened && toggle()}
+              compact={compact}
+              onNavigate={closeMobile}
             />
           </>
         )}
