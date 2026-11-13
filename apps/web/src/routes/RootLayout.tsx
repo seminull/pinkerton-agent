@@ -65,7 +65,7 @@ export default function RootLayout() {
       <AppShell.Header>
         <Group h="100%" px="md" gap="sm">
           <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-          <BrandMark h={30} />
+          <BrandMark h={34} />
           <Title order={4}>Pinkerton Agent</Title>
           <Text size="xs" c="dimmed">
             CRM

@@ -1,17 +1,23 @@
 import { Image, type StyleProp } from "@mantine/core";
 import logoDark from "./logo-dark.svg";
 import logoLight from "./logo-light.svg";
-import markDark from "./mark-dark.svg";
-import markLight from "./mark-light.svg";
+import markDark from "./mark-circle-dark.svg";
+import markLight from "./mark-circle-light.svg";
 
 // The brand artwork, in two cuts:
 //
-//   logo-*.svg  the full lockup — doorway, key, and "Pinkerton Agent Real
-//               Estate" lettering. For places with room: the login screen.
-//   mark-*.svg  the doorway and key alone, cropped square from the same
-//               artwork. For small sizes, where the lettering would be an
-//               unreadable smudge: the app header. (public/favicon.svg is the
-//               same crop for the browser tab.)
+//   logo-*.svg         the doorway lockup — arch, key, and "Pinkerton Agent
+//                      Real Estate" lettering. For places with room: the
+//                      login screen.
+//   logo-circle-*.svg  the circular lockup, as supplied. The source artwork
+//                      for the header mark below; not rendered itself.
+//   mark-circle-*.svg  the ring and key alone, cropped square from the
+//                      circular lockup. For the app header, where the
+//                      lettering would be an unreadable smudge at 34px and
+//                      the name is set in text right beside it anyway.
+//
+// public/favicon.svg (the browser tab icon) is a square crop of the DOORWAY
+// lockup, not the circle.
 //
 // Each comes in a light-background and a dark-background colouring. The mark
 // files are derived from the logo files — if the artwork changes, re-cut them
