@@ -66,3 +66,13 @@ export interface TimeOption {
   isBreak?: boolean;
   countsAsOwnTime?: boolean;
 }
+
+/** POST /api/time-entries/import */
+export interface TimeImportResult {
+  imported: number;
+  /** Rows skipped because an identical entry already existed. */
+  duplicates: number;
+  /** Names added to the user's Setup lists because the file used them. */
+  createdCategories: string[];
+  createdWorkTypes: string[];
+}

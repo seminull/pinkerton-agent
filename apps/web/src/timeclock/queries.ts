@@ -4,6 +4,7 @@ import type {
   ListResponse,
   TimeDayTotals,
   TimeEntry,
+  TimeImportResult,
   TimeOption,
   TimeOptions,
   TimeSummary,
@@ -215,5 +216,29 @@ export const useReorderOptions = (list: OptionList) => {
     // onSettled: a failed reorder should snap the list back to what the
     // server actually has.
     onSettled: invalidate,
+  });
+};
+
+// --- backfill import ---------------------------------------------------------
+
+export interface ImportEntryInput {
+  category: string;
+  task: string;
+  reference: string | null;
+  workType: string;
+  notes: string | null;
+  /** ISO instants. */
+  startedAt: string;
+  endedAt: string;
+}
+
+export const useImportTimeEntries = () => {
+  // An import adds entries AND can add categories and work types, so both
+  // trees are refreshed — the same pair a Setup change refreshes.
+  const invalidate = useInvalidateOptions();
+  return useMutation({
+    mutationFn: (entries: ImportEntryInput[]) =>
+      api.post<TimeImportResult>("/time-entries/import", { entries }),
+    onSuccess: invalidate,
   });
 };

@@ -2,9 +2,9 @@ import { Hono } from "hono";
 import { Op, QueryTypes, UniqueConstraintError, type WhereOptions } from "sequelize";
 import type { AuthEnv } from "../auth";
 import { apiError, parsePage, pickFields, requireNonEmpty, requireUuid } from "../http";
-import { sequelize, TimeEntry } from "../sequelize/models";
+import { sequelize, TimeCategory, TimeEntry, TimeWorkType } from "../sequelize/models";
 import { activeOptionNames, withTimeOptions } from "../time-options";
-import type { TimeDayTotals, TimeSummary } from "../types";
+import type { TimeDayTotals, TimeImportResult, TimeSummary } from "../types";
 
 // Mounted at /api/time-entries. The Time Clock: start a task, stop it, and the
 // span is recorded.
@@ -49,6 +49,12 @@ const WRITABLE_ON_EDIT = [...WRITABLE_ON_START, "startedAt", "endedAt"] as const
 // the server's are never exactly in step, and rejecting "now" as "the future"
 // because of a few seconds of drift would be maddening.
 const CLOCK_SKEW_MS = 5 * 60 * 1000;
+
+// Per request. A full working month is well under a thousand rows; the cap is
+// there so one request can't be made to do unbounded work, and it keeps the
+// body comfortably inside the proxy's size limit (docker/nginx.conf).
+const MAX_IMPORT_ENTRIES = 2000;
+const MAX_OPTION_NAME = 80;
 
 const MAX_TASK = 200;
 const MAX_REFERENCE = 100;
@@ -267,6 +273,174 @@ app.post("/stop", async (c) => {
   if (!entry) throw apiError(409, "no_task_running");
   await entry.update({ endedAt: new Date() });
   return c.json({ entry });
+});
+
+// POST /api/time-entries/import
+//   { entries: [{ category, task, reference?, workType, notes?, startedAt, endedAt }] }
+//
+// Backfill: adds finished entries on the dates they actually happened — time
+// tracked somewhere else before this app existed. The browser reads the CSV
+// and sends instants, because "10:45:25 AM" only means something in the
+// user's own time zone, which the server doesn't know.
+//
+// All-or-nothing: one bad row rejects the whole batch with that row named, and
+// nothing is written. A half-imported file is the worst outcome — you can't
+// tell which half, and running it again doubles the half that worked.
+app.post("/import", async (c) => {
+  const userId = c.get("auth").user.id;
+  const body: unknown = await c.req.json().catch(() => null);
+  const raw = (body as { entries?: unknown } | null)?.entries;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw apiError(422, "entries_must_be_a_nonempty_array");
+  }
+  if (raw.length > MAX_IMPORT_ENTRIES) {
+    throw apiError(413, "too_many_entries", { entries: `maximum_${MAX_IMPORT_ENTRIES}` });
+  }
+
+  // Errors are keyed "entries.<index>.<field>" so the client can point at the
+  // exact row of the file.
+  const bad = (index: number, field: string, reason: string) =>
+    apiError(422, "invalid_import_entry", { [`entries.${index}.${field}`]: reason });
+  const text = (
+    row: Record<string, unknown>,
+    index: number,
+    field: string,
+    max: number,
+    required: boolean
+  ): string | null => {
+    const value = row[field];
+    if (value === undefined || value === null || value === "") {
+      if (required) throw bad(index, field, "required");
+      return null;
+    }
+    if (typeof value !== "string") throw bad(index, field, "must_be_a_string");
+    const trimmed = value.trim();
+    if (trimmed.length > max) throw bad(index, field, "too_long");
+    if (!trimmed && required) throw bad(index, field, "required");
+    return trimmed || null;
+  };
+  const instant = (row: Record<string, unknown>, index: number, field: string): Date => {
+    const value = row[field];
+    const date = typeof value === "string" ? new Date(value) : new Date(Number.NaN);
+    if (Number.isNaN(date.getTime())) throw bad(index, field, "invalid_date");
+    return date;
+  };
+
+  const latestAllowed = Date.now() + CLOCK_SKEW_MS;
+  const parsed = raw.map((item, index) => {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
+      throw bad(index, "entry", "must_be_an_object");
+    }
+    const row = item as Record<string, unknown>;
+    const startedAt = instant(row, index, "startedAt");
+    const endedAt = instant(row, index, "endedAt");
+    // >= rather than >: a real log can hold a task stopped the same second it
+    // was started, and refusing the whole file over a zero-length row would be
+    // absurd. It just contributes no minutes.
+    if (endedAt.getTime() < startedAt.getTime()) throw bad(index, "endedAt", "before_start");
+    if (endedAt.getTime() > latestAllowed) throw bad(index, "endedAt", "in_the_future");
+    return {
+      category: text(row, index, "category", MAX_OPTION_NAME, true)!,
+      task: text(row, index, "task", MAX_TASK, true)!,
+      reference: text(row, index, "reference", MAX_REFERENCE, false),
+      workType: text(row, index, "workType", MAX_OPTION_NAME, true)!,
+      notes: text(row, index, "notes", MAX_NOTES, false),
+      startedAt,
+      endedAt,
+    };
+  });
+
+  const result = await sequelize.transaction(async (transaction): Promise<TimeImportResult> => {
+    // --- categories and work types ----------------------------------------
+    // A file from elsewhere will name things this user doesn't have yet. They
+    // are added to the user's lists rather than rejected: the alternative is
+    // making someone hand-create a dozen options before an import can work.
+    // Matching is case-insensitive and adopts the existing spelling, so
+    // "lunch / break" in a file lands on the user's "Lunch / Break" — and
+    // inherits its break setting — instead of becoming a second one.
+    const resolve = async (
+      model: typeof TimeCategory | typeof TimeWorkType,
+      wanted: string[],
+      defaults: Record<string, boolean>
+    ): Promise<{ canonical: Map<string, string>; created: string[] }> => {
+      const existing = await (model as typeof TimeCategory).findAll({
+        where: { userId },
+        attributes: ["name", "position"],
+        transaction,
+      });
+      const canonical = new Map(existing.map((row) => [row.name.toLowerCase(), row.name]));
+      let position = existing.reduce((max, row) => Math.max(max, row.position), -1);
+      const created: string[] = [];
+      for (const name of wanted) {
+        if (canonical.has(name.toLowerCase())) continue;
+        position += 1;
+        await (model as typeof TimeCategory).create(
+          { userId, name, position, archivedAt: null, ...defaults } as never,
+          { transaction }
+        );
+        canonical.set(name.toLowerCase(), name);
+        created.push(name);
+      }
+      return { canonical, created };
+    };
+    // New categories are ordinary work and new work types are the user's own
+    // time — the safe guesses. Either can be flipped on the Setup tab, and the
+    // totals follow.
+    const categories = await resolve(
+      TimeCategory,
+      parsed.map((entry) => entry.category),
+      { isBreak: false }
+    );
+    const workTypes = await resolve(
+      TimeWorkType,
+      parsed.map((entry) => entry.workType),
+      { countsAsOwnTime: true }
+    );
+
+    // --- duplicates ---------------------------------------------------------
+    // Same start, same end, same task = the same entry. Skipped, so importing a
+    // file twice (or a second file that overlaps the first) adds nothing twice.
+    const key = (startedAt: Date, endedAt: Date | null, task: string) =>
+      `${startedAt.getTime()}|${endedAt?.getTime() ?? ""}|${task}`;
+    const starts = parsed.map((entry) => entry.startedAt.getTime());
+    const existing = await TimeEntry.findAll({
+      where: {
+        userId,
+        startedAt: { [Op.between]: [new Date(Math.min(...starts)), new Date(Math.max(...starts))] },
+      },
+      attributes: ["startedAt", "endedAt", "task"],
+      transaction,
+    });
+    const seen = new Set(existing.map((row) => key(row.startedAt, row.endedAt, row.task)));
+
+    const rows = [];
+    let duplicates = 0;
+    for (const entry of parsed) {
+      const id = key(entry.startedAt, entry.endedAt, entry.task);
+      if (seen.has(id)) {
+        duplicates += 1;
+        continue;
+      }
+      // Added as we go, so a row repeated inside the file is caught too.
+      seen.add(id);
+      rows.push({
+        ...entry,
+        userId,
+        category: categories.canonical.get(entry.category.toLowerCase())!,
+        workType: workTypes.canonical.get(entry.workType.toLowerCase())!,
+      });
+    }
+    if (rows.length > 0) await TimeEntry.bulkCreate(rows, { transaction });
+
+    return {
+      imported: rows.length,
+      duplicates,
+      createdCategories: categories.created,
+      createdWorkTypes: workTypes.created,
+    };
+  });
+
+  return c.json(result, 201);
 });
 
 // PATCH /api/time-entries/:id

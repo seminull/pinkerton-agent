@@ -2,12 +2,13 @@ import { useMemo, useState } from "react";
 import { Alert, Button, Card, Group, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { Calendar } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
-import { IconDownload } from "@tabler/icons-react";
+import { IconDownload, IconUpload } from "@tabler/icons-react";
 import type { TimeDayTotals } from "../api/types";
 import PageStack from "../motion/PageStack";
 import { downloadCsv } from "./csv";
 import DayTimeline from "./DayTimeline";
 import EntriesTable from "./EntriesTable";
+import ImportEntriesModal from "./ImportEntriesModal";
 import { describeError } from "./errors";
 import { dayRange, formatDuration, formatLongDay, parseDay } from "./format";
 import { fetchAllTimeEntries, useDailyTotals, useTimeSummary } from "./queries";
@@ -46,6 +47,7 @@ export default function CalendarTab({ day, onDayChange }: Props) {
   // entries are showing below until one is actually clicked.
   const [shownMonth, setShownMonth] = useState(day);
   const [exporting, setExporting] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const daily = useDailyTotals(visibleRange(shownMonth));
   const allTotals = useTimeSummary();
@@ -170,15 +172,26 @@ export default function CalendarTab({ day, onDayChange }: Props) {
         <Stack>
           <Group justify="space-between">
             <Title order={4}>All recorded days</Title>
-            <Button
-              variant="default"
-              leftSection={<IconDownload size={16} />}
-              onClick={handleExport}
-              loading={exporting}
-              disabled={!allTotals.data || allTotals.data.summary.entryCount === 0}
-            >
-              Export for Excel (CSV)
-            </Button>
+            <Group gap="sm">
+              {/* Import sits beside Export because they are two directions of
+                  the same file: what Export writes, Import can read back. */}
+              <Button
+                variant="default"
+                leftSection={<IconUpload size={16} />}
+                onClick={() => setImportOpen(true)}
+              >
+                Import CSV
+              </Button>
+              <Button
+                variant="default"
+                leftSection={<IconDownload size={16} />}
+                onClick={handleExport}
+                loading={exporting}
+                disabled={!allTotals.data || allTotals.data.summary.entryCount === 0}
+              >
+                Export for Excel (CSV)
+              </Button>
+            </Group>
           </Group>
           <SimpleGrid cols={{ base: 2, sm: 4 }}>
             <Stat label="Work" value={formatDuration(allTotals.data?.summary.workMinutes ?? 0)} />
@@ -197,6 +210,17 @@ export default function CalendarTab({ day, onDayChange }: Props) {
           </SimpleGrid>
         </Stack>
       </Card>
+
+      <ImportEntriesModal
+        opened={importOpen}
+        onClose={() => setImportOpen(false)}
+        // Show the user what they just imported: select the earliest day in
+        // the file and turn the calendar to its month.
+        onImported={(firstDay) => {
+          onDayChange(firstDay);
+          setShownMonth(firstDay);
+        }}
+      />
     </PageStack>
   );
 }
