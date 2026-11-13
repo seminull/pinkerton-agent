@@ -10,7 +10,6 @@ import {
   Loader,
   Menu,
   Pagination,
-  Stack,
   Table,
   Text,
   TextInput,
@@ -31,6 +30,7 @@ import { ApiError } from "../api/client";
 import type { AdminUser } from "../api/types";
 import { useAuth } from "../auth/authContext";
 import { formatDate } from "../format";
+import PageStack from "../motion/PageStack";
 import { useAdminUsers, useRevokeSessions, useUpdateUser } from "./queries";
 import UserFormModal from "./UserFormModal";
 
@@ -121,7 +121,7 @@ export default function Users() {
       .catch(fail("Couldn't sign them out"));
 
   return (
-    <Stack>
+    <PageStack>
       <Group justify="space-between">
         <Title order={2}>Users</Title>
         <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
@@ -293,6 +293,6 @@ export default function Users() {
         user={editing}
         isSelf={editing?.id === me.id}
       />
-    </Stack>
+    </PageStack>
   );
 }

@@ -22,6 +22,7 @@ import { Link } from "react-router";
 import type { Contact, ContactStage, ContactType } from "../api/types";
 import { CONTACT_STAGE_COLORS } from "../theme";
 import { humanize } from "../format";
+import PageStack from "../motion/PageStack";
 import ContactFormModal from "./ContactFormModal";
 import { useContacts } from "./queries";
 
@@ -74,7 +75,7 @@ export default function Contacts() {
   };
 
   return (
-    <Stack>
+    <PageStack>
       <Group justify="space-between">
         <Title order={2}>Contacts</Title>
         <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
@@ -221,6 +222,6 @@ export default function Contacts() {
         onClose={() => setFormOpen(false)}
         contact={editing}
       />
-    </Stack>
+    </PageStack>
   );
 }

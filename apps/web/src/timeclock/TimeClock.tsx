@@ -27,6 +27,7 @@ import {
 } from "@tabler/icons-react";
 import { ApiError } from "../api/client";
 import type { TimeEntry } from "../api/types";
+import PageStack from "../motion/PageStack";
 import {
   dayRange,
   entryMinutes,
@@ -267,7 +268,7 @@ export default function TimeClock() {
   const totalPages = history.data ? Math.ceil(history.data.total / PAGE_SIZE) : 0;
 
   return (
-    <Stack>
+    <PageStack>
       <div>
         <Title order={2}>Time Clock</Title>
         <Text c="dimmed" size="sm">
@@ -550,6 +551,6 @@ export default function TimeClock() {
           </Group>
         </Stack>
       </Modal>
-    </Stack>
+    </PageStack>
   );
 }

@@ -20,6 +20,7 @@ import { IconPencil, IconPlus, IconSearch } from "@tabler/icons-react";
 import type { Listing, ListingStatus } from "../api/types";
 import { LISTING_STATUS_COLORS } from "../theme";
 import { formatDate, formatPriceCents, humanize } from "../format";
+import PageStack from "../motion/PageStack";
 import ListingFormModal from "./ListingFormModal";
 import { useListings } from "./queries";
 
@@ -62,7 +63,7 @@ export default function Listings() {
   };
 
   return (
-    <Stack>
+    <PageStack>
       <Group justify="space-between">
         <Title order={2}>Listings</Title>
         <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
@@ -206,6 +207,6 @@ export default function Listings() {
         onClose={() => setFormOpen(false)}
         listing={editing}
       />
-    </Stack>
+    </PageStack>
   );
 }

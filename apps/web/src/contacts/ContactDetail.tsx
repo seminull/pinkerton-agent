@@ -16,6 +16,7 @@ import { IconArrowLeft } from "@tabler/icons-react";
 import { Link, useParams } from "react-router";
 import { CONTACT_STAGE_COLORS, LISTING_STATUS_COLORS } from "../theme";
 import { formatDate, formatPriceCents, humanize } from "../format";
+import PageStack from "../motion/PageStack";
 import { useContact } from "./queries";
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -63,7 +64,7 @@ export default function ContactDetail() {
   const { contact } = data;
 
   return (
-    <Stack>
+    <PageStack>
       <Button
         component={Link}
         to="/contacts"
@@ -155,6 +156,6 @@ export default function ContactDetail() {
           No listings for this contact.
         </Text>
       )}
-    </Stack>
+    </PageStack>
   );
 }

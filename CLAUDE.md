@@ -25,6 +25,7 @@ for the schema and integrations this is built to grow into.
 | API      | Hono via `@hono/node-server`                        |
 | Database | Postgres 17 in Docker, Sequelize 6 + sequelize-cli  |
 | Client   | React 19, Mantine 9, TanStack Query 5, React Router 7 |
+| Motion   | Motion (formerly Framer Motion), slim `m` components  |
 | Build    | Vite, TypeScript strict                             |
 | Packages | pnpm workspaces (`apps/*`, `packages/*`)            |
 
@@ -51,6 +52,7 @@ server/                  API. TypeScript, run with tsx.
 apps/web/                Vite + React client (@pinkertonagent/web).
   src/api/               fetch wrapper and wire types.
   src/admin/             Users screen (admins only): create, edit, disable.
+  src/motion/            PageStack: the shared page load-in animation.
   src/timeclock/         Time Clock: start/stop task timer, history, CSV export.
   src/auth/              AuthProvider, the AuthGate around the router, the login page.
   src/<resource>/        Feature folder: queries.ts + components, colocated.
@@ -88,6 +90,14 @@ come only from `pnpm user:create`, an admin on the Users screen, or a Google
 sign-in by an address in `AUTH_ALLOWED_EMAILS`. `/api/admin/*` adds a second
 gate (`adminOnly`) the same way. The client-side `AuthGate` is a convenience; the server
 check is the control.
+
+**Pages load in through `PageStack`.** A routed page's root element is
+`<PageStack>` (`src/motion/PageStack.tsx`), not `<Stack>`: it staggers the
+page's top-level sections in, and it is the one place the timing is tuned.
+Import animation components from `motion/react-m` (`m.div`), never
+`motion.div` — the app loads Motion's features lazily, and the full component
+throws under `LazyMotion strict`. Keep motion subtle and short; this is a tool
+people use all day.
 
 **The client calls relative `/api` paths.** Never an absolute origin — that URL
 would be resolved by the visitor's browser on their machine. Vite proxies `/api`

@@ -1,5 +1,6 @@
-import { Card, Grid, Group, Stack, Text, Title } from "@mantine/core";
+import { Card, Grid, Group, Text, Title } from "@mantine/core";
 import { Link } from "react-router";
+import PageStack from "../motion/PageStack";
 import { useContacts } from "../contacts/queries";
 import { useListings } from "../listings/queries";
 import { formatPriceCents } from "../format";
@@ -35,7 +36,7 @@ export default function Dashboard() {
   );
 
   return (
-    <Stack>
+    <PageStack>
       <Group justify="space-between">
         <Title order={2}>Dashboard</Title>
       </Group>
@@ -75,6 +76,6 @@ export default function Dashboard() {
         Bare-bones scaffold. See PLAN.md for the schema and integrations this is
         built to grow into.
       </Text>
-    </Stack>
+    </PageStack>
   );
 }

@@ -12,6 +12,7 @@ import {
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { IconAlertCircle, IconBrandGoogle } from "@tabler/icons-react";
+import * as m from "motion/react-m";
 import { ApiError } from "../api/client";
 import { BrandLogo } from "../brand/Brand";
 import ColorSchemeToggle from "../routes/ColorSchemeToggle";
@@ -98,7 +99,20 @@ export default function LoginPage() {
       <ColorSchemeToggle affixed />
       {/* Tighter padding below the xs breakpoint: on a 320px phone the roomy
           desktop padding would leave the fields barely 220px wide. */}
-      <Paper withBorder shadow="sm" p={{ base: "lg", xs: "xl" }} w="100%" maw={400}>
+      <Paper
+        withBorder
+        shadow="sm"
+        p={{ base: "lg", xs: "xl" }}
+        w="100%"
+        maw={400}
+        // The card settles into place: a short rise and a barely-there scale,
+        // the same curve the in-app pages use (see motion/PageStack.tsx) but a
+        // touch slower, since this is the one screen with nothing else on it.
+        component={m.div}
+        initial={{ opacity: 0, y: 14, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      >
         <Stack>
           {/* The lockup carries the name, so there is no separate text title. */}
           <Center>
