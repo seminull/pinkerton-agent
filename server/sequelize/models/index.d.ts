@@ -110,6 +110,23 @@ export interface UserSessionAttributes {
   updatedAt: Date;
 }
 
+export interface TimeEntryAttributes {
+  id: string;
+  /** Whose time this is. Every query is scoped by it. */
+  userId: string;
+  category: string;
+  task: string;
+  /** An anonymous label ("File A"), not a client name. */
+  reference: string | null;
+  workType: string;
+  notes: string | null;
+  startedAt: Date;
+  /** NULL while the task is still running. */
+  endedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Columns the database or Sequelize fills in, so `create()` doesn't demand them.
 type Generated = "id" | "createdAt" | "updatedAt";
 
@@ -130,6 +147,12 @@ export type UserSessionInstance = Model<
 > &
   UserSessionAttributes;
 
+export type TimeEntryInstance = Model<
+  TimeEntryAttributes,
+  Omit<TimeEntryAttributes, Generated>
+> &
+  TimeEntryAttributes;
+
 export const sequelize: Sequelize;
 export const Contact: ModelStatic<ContactInstance>;
 export const Listing: ModelStatic<ListingInstance>;
@@ -137,3 +160,4 @@ export const Activity: ModelStatic<ActivityInstance>;
 export const User: ModelStatic<UserInstance>;
 export const AuthIdentity: ModelStatic<AuthIdentityInstance>;
 export const UserSession: ModelStatic<UserSessionInstance>;
+export const TimeEntry: ModelStatic<TimeEntryInstance>;

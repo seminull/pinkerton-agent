@@ -35,3 +35,13 @@ export interface AdminUser extends AuthUser {
   lastLoginAt: string | null;
   createdAt: string;
 }
+
+/** GET /api/time-entries/summary — whole minutes, over completed entries. */
+export interface TimeSummary {
+  /** Everything that is neither a break nor assistant-performed work. */
+  workMinutes: number;
+  breakMinutes: number;
+  /** Work the assistant did — tracked, but not the user's own time. */
+  assistantMinutes: number;
+  entryCount: number;
+}

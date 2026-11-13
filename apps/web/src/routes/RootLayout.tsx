@@ -14,6 +14,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
   IconAddressBook,
+  IconClock,
   IconHome,
   IconLayoutDashboard,
   IconLogout,
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: IconLayoutDashboard },
   { to: "/contacts", label: "Contacts", icon: IconAddressBook },
   { to: "/listings", label: "Listings", icon: IconHome },
+  { to: "/time-clock", label: "Time Clock", icon: IconClock },
 ];
 
 export default function RootLayout() {

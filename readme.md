@@ -85,7 +85,18 @@ GET    /api/activities      ?contactId= &listingId= &type= &open=true
 POST   /api/activities
 PATCH  /api/activities/:id
 DELETE /api/activities/:id
+
+GET    /api/time-entries           ?from= &to= &limit= &offset=   completed, newest first
+GET    /api/time-entries/active    the running task, or null
+GET    /api/time-entries/summary   ?from= &to=   work / break / assistant minutes
+POST   /api/time-entries/start     { category, task, reference?, workType, notes? }
+POST   /api/time-entries/stop
+DELETE /api/time-entries/:id
 ```
+
+The time-entry routes are scoped to the signed-in user: each person sees and
+changes only their own entries. Start and stop times are the server's clock,
+never a value from the request.
 
 Prices are **integer cents** on the wire and in the database. `?open=true` on
 activities returns everything not yet completed — the follow-up queue.
@@ -164,6 +175,10 @@ subject).
 `users` → `auth_identities` (one row per linked provider) and `users` →
 `user_sessions`, both `ON DELETE CASCADE`. Users are not yet connected to the
 CRM tables: every signed-in user sees the same contacts and listings.
+
+`users` → `time_entries` (`ON DELETE CASCADE`) is the exception — the Time
+Clock's rows belong to one user. A row with a NULL `endedAt` is the running
+task, and a partial unique index allows one of those per user.
 
 Schema changes go through `sequelize-cli` migrations under
 `server/sequelize/migrations/`. `sequelize.sync()` is never used.

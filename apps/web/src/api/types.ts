@@ -117,3 +117,24 @@ export interface AdminUser extends AuthUser {
   lastLoginAt: string | null;
   createdAt: string;
 }
+
+/** One timed task on the Time Clock. `endedAt` is null while it is running. */
+export interface TimeEntry {
+  id: string;
+  category: string;
+  task: string;
+  reference: string | null;
+  workType: string;
+  notes: string | null;
+  startedAt: string;
+  endedAt: string | null;
+}
+
+/** GET /api/time-entries/summary — whole minutes, over completed entries. */
+export interface TimeSummary {
+  workMinutes: number;
+  breakMinutes: number;
+  /** Work the assistant did — tracked, but not the user's own time. */
+  assistantMinutes: number;
+  entryCount: number;
+}
