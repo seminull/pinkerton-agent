@@ -20,10 +20,16 @@ import type {
   Listing,
   ListingLookup,
   ListingStatus,
+  ListingType,
 } from "../api/types";
 import { dollarsToCents } from "../format";
 import { useContacts } from "../contacts/queries";
-import { useCreateListing, useUpdateListing, type ListingInput } from "./queries";
+import {
+  useCreateListing,
+  useImportMatrixPhotos,
+  useUpdateListing,
+  type ListingInput,
+} from "./queries";
 
 const STATUS_OPTIONS: { value: ListingStatus; label: string }[] = [
   { value: "draft", label: "Draft" },
@@ -35,12 +41,17 @@ const STATUS_OPTIONS: { value: ListingStatus; label: string }[] = [
   { value: "expired", label: "Expired" },
 ];
 
+const LISTING_TYPE_OPTIONS: { value: ListingType; label: string }[] = [
+  { value: "sale", label: "For sale" },
+  { value: "lease", label: "For lease" },
+];
+
 interface Props {
   opened: boolean;
   onClose: () => void;
   listing?: Listing;
   /**
-   * A lookup result to start a NEW listing from ("Add with Zillow"). Its draft
+   * A lookup result to start a NEW listing from Zillow or Matrix. Its draft
    * pre-fills the form; nothing is saved until the person presses Create.
    * Ignored when editing an existing listing.
    */
@@ -54,6 +65,17 @@ interface Props {
 const lookupNotice = (
   lookup: ListingLookup
 ): { color: string; title: string; message: string } => {
+  if (lookup.source === "matrix") {
+    return {
+      color: "green",
+      title: "Loaded from NTREIS Matrix",
+      message: `MLS details were filled in from the shared listing. Review them before creating the property.${
+        lookup.photoCount > 0
+          ? ` ${lookup.photoCount.toLocaleString()} photos will be copied into this app after creation.`
+          : ""
+      }`,
+    };
+  }
   if (lookup.status === "matched" && lookup.quality === "exact") {
     return {
       color: "green",
@@ -88,8 +110,11 @@ const lookupNotice = (
 
 const lookupLinks = (lookup: ListingLookup | undefined): ExternalLink[] => {
   if (!lookup) return [];
+  if (lookup.source === "matrix") {
+    return [{ label: "NTREIS Matrix", url: lookup.sourceUrl }];
+  }
   return [
-    { label: "Zillow", url: lookup.zillowUrl },
+    { label: "Zillow", url: lookup.sourceUrl },
     ...(lookup.bigDistrictUrl
       ? [{ label: "County record", url: lookup.bigDistrictUrl }]
       : []),
@@ -110,6 +135,7 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
   const draft = listing ? undefined : lookup?.draft;
   const create = useCreateListing();
   const update = useUpdateListing();
+  const importMatrixPhotos = useImportMatrixPhotos();
   const isEdit = Boolean(listing);
 
   // The seller picker. Capped at the first 100 — replace with a searchable
@@ -127,12 +153,17 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
       city: listing?.city ?? draft?.city ?? "",
       state: listing?.state ?? draft?.state ?? "TX",
       postalCode: listing?.postalCode ?? draft?.postalCode ?? "",
-      mlsNumber: listing?.mlsNumber ?? "",
-      status: listing?.status ?? ("draft" as ListingStatus),
+      mlsNumber: listing?.mlsNumber ?? draft?.mlsNumber ?? "",
+      status: listing?.status ?? draft?.status ?? ("draft" as ListingStatus),
+      listingType:
+        listing?.listingType ?? draft?.listingType ?? ("sale" as ListingType),
       // The form works in dollars; the API and column are in cents.
-      priceDollars: listing?.listPriceCents
-        ? Number(listing.listPriceCents) / 100
-        : ("" as number | ""),
+      priceDollars:
+        listing?.listPriceCents !== null && listing?.listPriceCents !== undefined
+          ? Number(listing.listPriceCents) / 100
+          : draft?.listPriceCents !== null && draft?.listPriceCents !== undefined
+            ? draft.listPriceCents / 100
+            : ("" as number | ""),
       bedrooms: (listing?.bedrooms ?? draft?.bedrooms ?? "") as number | "",
       bathrooms: (listing?.bathrooms
         ? Number(listing.bathrooms)
@@ -143,6 +174,7 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
         ? Number(listing.lotAcres)
         : (draft?.lotAcres ?? "")) as number | "",
       yearBuilt: (listing?.yearBuilt ?? draft?.yearBuilt ?? "") as number | "",
+      parcelNumber: listing?.parcelNumber ?? draft?.parcelNumber ?? "",
       listedOn: listing?.listedOn ?? "",
       sellerContactId: listing?.sellerContactId ?? "",
       // A lookup already knows the source portal and, on a match, the county
@@ -198,6 +230,7 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
       listedOn: rest.listedOn || null,
       addressLine2: rest.addressLine2 || null,
       mlsNumber: rest.mlsNumber || null,
+      parcelNumber: rest.parcelNumber || null,
       sellerContactId: rest.sellerContactId || null,
       externalLinks,
       notes: rest.notes || null,
@@ -206,13 +239,36 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
     try {
       if (listing) {
         await update.mutateAsync({ id: listing.id, ...payload });
+        notifications.show({ message: "Listing updated", color: "green" });
       } else {
-        await create.mutateAsync(payload);
+        const result = await create.mutateAsync(payload);
+        let photoMessage = "";
+        if (lookup?.source === "matrix" && lookup.photoCount > 0) {
+          try {
+            const photos = await importMatrixPhotos.mutateAsync({
+              listingId: result.listing.id,
+              url: lookup.sourceUrl,
+            });
+            if (photos.imported > 0) {
+              photoMessage = ` ${photos.imported.toLocaleString()} photo${photos.imported === 1 ? " was" : "s were"} copied.`;
+            }
+            if (photos.failed > 0 || photos.omitted > 0) {
+              photoMessage += ` ${(photos.failed + photos.omitted).toLocaleString()} photo${
+                photos.failed + photos.omitted === 1 ? " was" : "s were"
+              } not copied.`;
+            }
+          } catch {
+            photoMessage = " The property was created, but its Matrix photos could not be copied.";
+          }
+        }
+        notifications.show({
+          message: `Listing created.${photoMessage}`,
+          color: photoMessage.includes("not copied") || photoMessage.includes("could not")
+            ? "yellow"
+            : "green",
+          autoClose: 8000,
+        });
       }
-      notifications.show({
-        message: listing ? "Listing updated" : "Listing created",
-        color: "green",
-      });
       form.reset();
       onClose();
     } catch (error) {
@@ -227,13 +283,17 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
   return (
     <Modal
       opened={opened}
-      onClose={onClose}
+      onClose={() => {
+        if (!create.isPending && !update.isPending && !importMatrixPhotos.isPending) {
+          onClose();
+        }
+      }}
       title={isEdit ? "Edit listing" : "New listing"}
       size="lg"
     >
       <form onSubmit={handleSubmit}>
         <Stack gap="sm">
-          {/* Only when this form was opened from "Add with Zillow". */}
+          {/* Only when this form was opened from a listing lookup. */}
           {!listing && lookup && (
             <Alert color={lookupNotice(lookup).color} title={lookupNotice(lookup).title}>
               {lookupNotice(lookup).message}
@@ -260,19 +320,28 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
           </Group>
           <Group grow>
             <Select
+              label="Listing type"
+              data={LISTING_TYPE_OPTIONS}
+              allowDeselect={false}
+              {...form.getInputProps("listingType")}
+            />
+            <Select
               label="Status"
               data={STATUS_OPTIONS}
               allowDeselect={false}
               {...form.getInputProps("status")}
             />
             <NumberInput
-              label="List price"
+              label={form.values.listingType === "lease" ? "Monthly rent" : "List price"}
               prefix="$"
               thousandSeparator=","
               min={0}
               {...form.getInputProps("priceDollars")}
             />
+          </Group>
+          <Group grow>
             <TextInput label="MLS #" {...form.getInputProps("mlsNumber")} />
+            <TextInput label="Parcel number" {...form.getInputProps("parcelNumber")} />
             <TextInput
               type="date"
               label="Listed on"
@@ -368,11 +437,18 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
           )}
           <Textarea label="Notes" autosize minRows={2} {...form.getInputProps("notes")} />
           <Group justify="flex-end" mt="sm">
-            <Button variant="subtle" onClick={onClose}>
+            <Button
+              variant="subtle"
+              onClick={onClose}
+              disabled={create.isPending || update.isPending || importMatrixPhotos.isPending}
+            >
               Cancel
             </Button>
-            <Button type="submit" loading={create.isPending || update.isPending}>
-              {isEdit ? "Save" : "Create"}
+            <Button
+              type="submit"
+              loading={create.isPending || update.isPending || importMatrixPhotos.isPending}
+            >
+              {importMatrixPhotos.isPending ? "Copying photos" : isEdit ? "Save" : "Create"}
             </Button>
           </Group>
         </Stack>

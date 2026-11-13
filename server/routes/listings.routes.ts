@@ -1,9 +1,22 @@
+import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { Op, type WhereOptions } from "sequelize";
 import type { AuthEnv } from "../auth";
 import { bigDistrictConfigured, lookupListing } from "../bigdistrict";
-import { removeAllListingPhotos } from "../listing-media";
-import { Contact, Listing } from "../sequelize/models";
+import {
+  detectListingImage,
+  MAX_LISTING_PHOTO_BYTES,
+  MAX_LISTING_PHOTOS,
+  removeAllListingPhotos,
+  removeListingPhoto,
+  writeListingPhoto,
+} from "../listing-media";
+import {
+  fetchMatrixPhoto,
+  parseMatrixSharedLink,
+  readMatrixListing,
+} from "../matrix";
+import { Contact, Listing, ListingPhoto } from "../sequelize/models";
 import {
   apiError,
   parsePage,
@@ -23,12 +36,14 @@ const WRITABLE = [
   "postalCode",
   "mlsNumber",
   "status",
+  "listingType",
   "listPriceCents",
   "bedrooms",
   "bathrooms",
   "livingAreaSqft",
   "lotAcres",
   "yearBuilt",
+  "parcelNumber",
   "listedOn",
   "sellerContactId",
   "externalLinks",
@@ -36,6 +51,8 @@ const WRITABLE = [
 ] as const;
 
 const REQUIRED_ON_CREATE = ["addressLine1", "city", "state", "postalCode"] as const;
+const MAX_MATRIX_LINK_LENGTH = 2000;
+const MATRIX_PHOTO_CONCURRENCY = 4;
 
 const SORT_FIELDS: Record<string, string> = {
   createdAt: "createdAt",
@@ -102,6 +119,16 @@ const normalizeListingValues = (
   }
 };
 
+const matrixLinkFromBody = (body: unknown): URL => {
+  const value = (body as { url?: unknown } | null)?.url;
+  if (typeof value !== "string" || !value.trim() || value.length > MAX_MATRIX_LINK_LENGTH) {
+    throw apiError(422, "unsupported_matrix_link");
+  }
+  const link = parseMatrixSharedLink(value.trim());
+  if (!link) throw apiError(422, "unsupported_matrix_link");
+  return link;
+};
+
 // GET /api/listings/lookup — whether "Add with Zillow" is available, so the
 // client can hide the button instead of offering one that can only fail.
 app.get("/lookup", (c) => c.json({ available: bigDistrictConfigured() }));
@@ -120,6 +147,15 @@ app.post("/lookup", async (c) => {
     throw apiError(422, "unsupported_listing_url");
   }
   return c.json({ lookup: await lookupListing(url.trim(), c.get("auth").user.id) });
+});
+
+// A public Matrix share contains the MLS's own listing data. It is fetched by
+// the server (not the browser, where CORS blocks it) and returned only as a
+// draft for review. Nothing is stored until the ordinary create form is saved.
+app.post("/matrix/lookup", async (c) => {
+  const body: unknown = await c.req.json().catch(() => null);
+  const { lookup } = await readMatrixListing(matrixLinkFromBody(body));
+  return c.json({ lookup });
 });
 
 // GET /api/listings?q=&status=&city=&minPrice=&maxPrice=&sort=&dir=&limit=&offset=
@@ -204,6 +240,90 @@ app.patch("/:id", async (c) => {
 
   await listing.update(values as never);
   return c.json({ listing });
+});
+
+// Re-fetch the reviewed Matrix listing and copy its expiring media into this
+// app's own photo store. Original names are deterministic, making a retry
+// idempotent after a partial network failure.
+app.post("/:id/matrix-photos", async (c) => {
+  const id = requireUuid(c.req.param("id"));
+  const listing = await Listing.findByPk(id);
+  if (!listing) throw apiError(404, "listing_not_found");
+
+  const body: unknown = await c.req.json().catch(() => null);
+  const matrix = await readMatrixListing(matrixLinkFromBody(body));
+  const matrixMls = matrix.lookup.draft.mlsNumber;
+  if (listing.mlsNumber && matrixMls && listing.mlsNumber !== matrixMls) {
+    throw apiError(422, "matrix_listing_mismatch");
+  }
+
+  const existing = await ListingPhoto.findAll({
+    where: { listingId: id },
+    attributes: ["originalName", "position"],
+  });
+  const existingNames = new Set(existing.map((photo) => photo.originalName));
+  const safeMls = (matrixMls || "listing").replace(/[^a-z0-9_-]/gi, "-");
+  const items = matrix.photoUrls.map((url, index) => ({
+    url,
+    index,
+    stem: `matrix-${safeMls}-${index + 1}`,
+  }));
+  const alreadyPresent = items.filter((item) =>
+    [...existingNames].some((name) => name.startsWith(`${item.stem}.`))
+  ).length;
+  const pending = items.filter(
+    (item) => ![...existingNames].some((name) => name.startsWith(`${item.stem}.`))
+  );
+  const capacity = Math.max(0, MAX_LISTING_PHOTOS - existing.length);
+  const selected = pending.slice(0, capacity);
+  const omitted = pending.length - selected.length;
+  const nextPosition =
+    existing.reduce((highest, photo) => Math.max(highest, photo.position), -1) + 1;
+  let cursor = 0;
+  let imported = 0;
+  let failed = 0;
+
+  const worker = async () => {
+    while (cursor < selected.length) {
+      const selectionIndex = cursor;
+      cursor += 1;
+      const item = selected[selectionIndex]!;
+      let storageKey: string | null = null;
+      try {
+        const bytes = await fetchMatrixPhoto(item.url, MAX_LISTING_PHOTO_BYTES);
+        const detected = bytes ? detectListingImage(bytes) : null;
+        if (!bytes || !detected) {
+          failed += 1;
+          continue;
+        }
+
+        storageKey = `${randomUUID()}.${detected.extension}`;
+        await writeListingPhoto(id, storageKey, bytes);
+        await ListingPhoto.create({
+          listingId: id,
+          storageKey,
+          originalName: `${item.stem}.${detected.extension}`,
+          contentType: detected.contentType,
+          sizeBytes: bytes.length,
+          position: nextPosition + selectionIndex,
+        });
+        imported += 1;
+      } catch (error) {
+        failed += 1;
+        if (storageKey) await removeListingPhoto(id, storageKey).catch(() => undefined);
+        console.error(`Could not import Matrix photo ${item.index + 1} for ${id}:`, error);
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(MATRIX_PHOTO_CONCURRENCY, selected.length) },
+      () => worker()
+    )
+  );
+
+  return c.json({ imported, alreadyPresent, failed, omitted });
 });
 
 app.delete("/:id", async (c) => {

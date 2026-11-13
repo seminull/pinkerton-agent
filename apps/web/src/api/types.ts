@@ -36,6 +36,8 @@ export type ListingStatus =
   | "withdrawn"
   | "expired";
 
+export type ListingType = "sale" | "lease";
+
 export interface ExternalLink {
   label: string;
   url: string;
@@ -50,6 +52,7 @@ export interface Listing {
   postalCode: string;
   mlsNumber: string | null;
   status: ListingStatus;
+  listingType: ListingType;
   /** Cents. BIGINT, so it arrives as a string once it exceeds 2^53. */
   listPriceCents: string | number | null;
   bedrooms: number | null;
@@ -57,6 +60,7 @@ export interface Listing {
   livingAreaSqft: number | null;
   lotAcres: string | null;
   yearBuilt: number | null;
+  parcelNumber: string | null;
   listedOn: string | null;
   sellerContactId: string | null;
   externalLinks: ExternalLink[];
@@ -253,16 +257,13 @@ export interface TimeImportResult {
   createdWorkTypes: string[];
 }
 
-/**
- * POST /api/listings/lookup — a Zillow link looked up in BigDistrict's county
- * records and shaped as a draft listing. Mirrors server/types.ts.
- */
+/** A Zillow/county or Matrix result that pre-fills a new listing form. */
 export interface ListingLookup {
+  source: "zillow" | "matrix";
   /** matched = found in county records; otherwise only the address is known. */
   status: "matched" | "ambiguous" | "not_found";
   /** How sure a match is. `approximate` deserves a look at the address. */
   quality: "exact" | "approximate" | null;
-  /** Never includes a price or status — only the listing site knows those. */
   draft: {
     addressLine1: string;
     city: string;
@@ -274,11 +275,17 @@ export interface ListingLookup {
     lotAcres: number | null;
     yearBuilt: number | null;
     notes: string;
+    mlsNumber: string | null;
+    status: ListingStatus | null;
+    listingType: ListingType;
+    listPriceCents: number | null;
+    parcelNumber: string | null;
   };
   county: string | null;
   bigDistrictUrl: string | null;
-  zillowUrl: string;
+  sourceUrl: string;
   candidates: number;
+  photoCount: number;
 }
 
 /** GET /api/dashboard — everything the dashboard draws, pre-aggregated. */

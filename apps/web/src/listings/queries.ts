@@ -93,12 +93,14 @@ export type ListingInput = Partial<
     | "postalCode"
     | "mlsNumber"
     | "status"
+    | "listingType"
     | "listPriceCents"
     | "bedrooms"
     | "bathrooms"
     | "livingAreaSqft"
     | "lotAcres"
     | "yearBuilt"
+    | "parcelNumber"
     | "listedOn"
     | "sellerContactId"
     | "externalLinks"
@@ -150,3 +152,26 @@ export const useLookupListing = () =>
     mutationFn: (url: string) =>
       api.post<{ lookup: ListingLookup }>("/listings/lookup", { url }),
   });
+
+export const useLookupMatrixListing = () =>
+  useMutation({
+    mutationFn: (url: string) =>
+      api.post<{ lookup: ListingLookup }>("/listings/matrix/lookup", { url }),
+  });
+
+export interface MatrixPhotoImportResult {
+  imported: number;
+  alreadyPresent: number;
+  failed: number;
+  omitted: number;
+}
+
+export const useImportMatrixPhotos = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ listingId, url }: { listingId: string; url: string }) =>
+      api.post<MatrixPhotoImportResult>(`/listings/${listingId}/matrix-photos`, { url }),
+    onSuccess: (_result, variables) =>
+      queryClient.invalidateQueries({ queryKey: listingKeys.photos(variables.listingId) }),
+  });
+};

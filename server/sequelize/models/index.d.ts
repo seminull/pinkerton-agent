@@ -32,6 +32,8 @@ export interface ListingAttributes {
   mlsNumber: string | null;
   /** draft | coming_soon | active | pending | sold | withdrawn | expired */
   status: string;
+  /** sale | lease — determines whether listPriceCents is a price or monthly rent. */
+  listingType: string;
   /** Stored in cents. Never float — money and binary floating point don't mix. */
   listPriceCents: number | null;
   bedrooms: number | null;
@@ -40,6 +42,7 @@ export interface ListingAttributes {
   livingAreaSqft: number | null;
   lotAcres: string | null;
   yearBuilt: number | null;
+  parcelNumber: string | null;
   listedOn: string | null;
   /** The seller. Nullable so a listing can be drafted before it has a contact. */
   sellerContactId: string | null;

@@ -29,6 +29,7 @@ import type { Listing, ListingLookup, ListingStatus } from "../api/types";
 import { LISTING_STATUS_COLORS } from "../theme";
 import { formatDate, formatPriceCents, humanize } from "../format";
 import PageStack from "../motion/PageStack";
+import AddWithMatrixModal from "./AddWithMatrixModal";
 import AddWithZillowModal from "./AddWithZillowModal";
 import ListingFormModal from "./ListingFormModal";
 import { useListingLookupAvailable, useListings } from "./queries";
@@ -54,6 +55,7 @@ export default function Listings() {
   const [formOpen, setFormOpen] = useState(false);
   // "Add with Zillow": the link dialog, then the result the form opens on.
   const [zillowOpen, setZillowOpen] = useState(false);
+  const [matrixOpen, setMatrixOpen] = useState(false);
   const [lookup, setLookup] = useState<ListingLookup | undefined>();
   const lookupAvailable = useListingLookupAvailable();
 
@@ -76,6 +78,7 @@ export default function Listings() {
   // new-listing form on its draft. Nothing has been saved yet.
   const openFromLookup = (result: ListingLookup) => {
     setZillowOpen(false);
+    setMatrixOpen(false);
     setEditing(undefined);
     setLookup(result);
     setFormOpen(true);
@@ -92,6 +95,13 @@ export default function Listings() {
       <Group justify="space-between">
         <Title order={2}>Listings</Title>
         <Group gap="sm">
+          <Button
+            variant="light"
+            leftSection={<IconLink size={16} />}
+            onClick={() => setMatrixOpen(true)}
+          >
+            Add with NTREIS
+          </Button>
           {/* Only offered when the server has a BigDistrict key — otherwise it
               is a button that can do nothing but fail. */}
           {lookupAvailable.data?.available && (
@@ -191,7 +201,12 @@ export default function Listings() {
                         {humanize(listing.status)}
                       </Badge>
                     </Table.Td>
-                    <Table.Td>{formatPriceCents(listing.listPriceCents)}</Table.Td>
+                    <Table.Td>
+                      {formatPriceCents(listing.listPriceCents)}
+                      {listing.listingType === "lease" && listing.listPriceCents !== null
+                        ? " / mo"
+                        : ""}
+                    </Table.Td>
                     <Table.Td>
                       <Text size="sm">
                         {listing.bedrooms ?? "—"} / {listing.bathrooms ?? "—"}
@@ -253,7 +268,7 @@ export default function Listings() {
         // Remounted per target so the form reloads its initial values — and a
         // lookup gets its own key, or a second lookup would open on the first
         // one's draft.
-        key={editing?.id ?? (lookup ? `lookup-${lookup.zillowUrl}` : "new")}
+        key={editing?.id ?? (lookup ? `lookup-${lookup.sourceUrl}` : "new")}
         opened={formOpen}
         onClose={() => setFormOpen(false)}
         listing={editing}
@@ -262,6 +277,11 @@ export default function Listings() {
       <AddWithZillowModal
         opened={zillowOpen}
         onClose={() => setZillowOpen(false)}
+        onResult={openFromLookup}
+      />
+      <AddWithMatrixModal
+        opened={matrixOpen}
+        onClose={() => setMatrixOpen(false)}
         onResult={openFromLookup}
       />
     </PageStack>

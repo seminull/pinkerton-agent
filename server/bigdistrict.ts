@@ -119,6 +119,7 @@ export const lookupListing = async (url: string, requestedBy: string): Promise<L
   if (match) {
     const bigDistrictUrl = text(match.url) || null;
     return {
+      source: "zillow",
       status: "matched",
       quality: match.quality === "exact" ? "exact" : "approximate",
       draft: {
@@ -134,11 +135,17 @@ export const lookupListing = async (url: string, requestedBy: string): Promise<L
         lotAcres: count(match.lotAcres),
         yearBuilt: count(match.yearBuilt),
         notes: "",
+        mlsNumber: null,
+        status: null,
+        listingType: "sale",
+        listPriceCents: null,
+        parcelNumber: null,
       },
       county: text(match.county) || null,
       bigDistrictUrl,
-      zillowUrl,
+      sourceUrl: zillowUrl,
       candidates: 1,
+      photoCount: 0,
     };
   }
 
@@ -148,6 +155,7 @@ export const lookupListing = async (url: string, requestedBy: string): Promise<L
   // together and go in the street field for the person to split.
   const parsed = answer.parsed ?? {};
   return {
+    source: "zillow",
     status: answer.status === "ambiguous" ? "ambiguous" : "not_found",
     quality: null,
     draft: {
@@ -161,10 +169,16 @@ export const lookupListing = async (url: string, requestedBy: string): Promise<L
       lotAcres: null,
       yearBuilt: null,
       notes: "",
+      mlsNumber: null,
+      status: null,
+      listingType: "sale",
+      listPriceCents: null,
+      parcelNumber: null,
     },
     county: null,
     bigDistrictUrl: null,
-    zillowUrl,
+    sourceUrl: zillowUrl,
     candidates: typeof answer.candidates === "number" ? answer.candidates : 0,
+    photoCount: 0,
   };
 };

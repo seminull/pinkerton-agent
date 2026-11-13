@@ -143,7 +143,12 @@ export default function ContactDetail() {
                         {humanize(listing.status)}
                       </Badge>
                     </Table.Td>
-                    <Table.Td>{formatPriceCents(listing.listPriceCents)}</Table.Td>
+                    <Table.Td>
+                      {formatPriceCents(listing.listPriceCents)}
+                      {listing.listingType === "lease" && listing.listPriceCents !== null
+                        ? " / mo"
+                        : ""}
+                    </Table.Td>
                     <Table.Td>{formatDate(listing.listedOn)}</Table.Td>
                   </Table.Tr>
                 ))}

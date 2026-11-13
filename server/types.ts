@@ -77,11 +77,22 @@ export interface TimeImportResult {
   createdWorkTypes: string[];
 }
 
+/** A property status accepted by the listing form and table. */
+export type ListingStatus =
+  | "draft"
+  | "coming_soon"
+  | "active"
+  | "pending"
+  | "sold"
+  | "withdrawn"
+  | "expired";
+
 /**
- * POST /api/listings/lookup — a listing link looked up in BigDistrict, shaped
- * as a draft listing for the form to open with.
+ * A Zillow/county or NTREIS Matrix lookup, shaped as a draft listing for the
+ * form to open with. Nothing has been saved at this point.
  */
 export interface ListingLookup {
+  source: "zillow" | "matrix";
   /**
    * matched   — the home was found in the county records
    * ambiguous — more than one home fits the address; none was chosen
@@ -90,7 +101,6 @@ export interface ListingLookup {
   status: "matched" | "ambiguous" | "not_found";
   /** How sure a match is. `approximate` deserves a look at the address. */
   quality: "exact" | "approximate" | null;
-  /** Never includes a price or status — only the listing site knows those. */
   draft: {
     addressLine1: string;
     city: string;
@@ -102,12 +112,19 @@ export interface ListingLookup {
     lotAcres: number | null;
     yearBuilt: number | null;
     notes: string;
+    mlsNumber: string | null;
+    status: ListingStatus | null;
+    listingType: "sale" | "lease";
+    listPriceCents: number | null;
+    parcelNumber: string | null;
   };
   county: string | null;
   bigDistrictUrl: string | null;
-  /** The submitted link with its query string removed. */
-  zillowUrl: string;
+  /** The submitted link with its tracking query string removed. */
+  sourceUrl: string;
   candidates: number;
+  /** Matrix photos available to copy after the listing is created. */
+  photoCount: number;
 }
 
 /**

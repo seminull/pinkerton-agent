@@ -80,6 +80,8 @@ GET    /api/listings        ?q= &status= &city= &minPrice= &maxPrice= &sort= &di
 POST   /api/listings
 GET    /api/listings/lookup          { available } — is "Add with Zillow" set up
 POST   /api/listings/lookup { url }  a Zillow link -> a draft listing (nothing saved)
+POST   /api/listings/matrix/lookup { url }  a public Matrix share -> a draft listing
+POST   /api/listings/:id/matrix-photos { url }  copy Matrix photos after creation
 GET    /api/listings/:id    includes the seller contact
 PATCH  /api/listings/:id
 DELETE /api/listings/:id

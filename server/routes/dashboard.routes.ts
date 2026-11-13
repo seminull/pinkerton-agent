@@ -59,7 +59,8 @@ app.get("/", async (c) => {
            -- Text, not a JS number from the driver: BIGINT sums arrive as
            -- strings, and the client converts at the edge like every price.
            (SELECT COALESCE(SUM("listPriceCents"), 0)::text
-              FROM listings WHERE status = 'active') AS "activeVolumeCents",
+              FROM listings
+             WHERE status = 'active' AND "listingType" = 'sale') AS "activeVolumeCents",
            -- An open activity (completedAt NULL) whose time has passed is a
            -- follow-up that was missed, whatever its type.
            (SELECT COUNT(*)::int FROM activities

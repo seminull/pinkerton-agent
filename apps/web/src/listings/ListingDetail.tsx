@@ -319,7 +319,7 @@ export default function ListingDetail() {
             <Stack gap="lg">
               <Stack gap={2}>
                 <Text size="xs" c="dimmed" tt="uppercase" fw={600}>
-                  List price
+                  {listing.listingType === "lease" ? "Monthly rent" : "List price"}
                 </Text>
                 <Text size="xl" fw={700}>
                   {formatPriceCents(listing.listPriceCents)}
@@ -362,6 +362,15 @@ export default function ListingDetail() {
         <Grid>
           <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
             <Field label="MLS number" value={listing.mlsNumber ?? "—"} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+            <Field
+              label="Listing type"
+              value={listing.listingType === "lease" ? "For lease" : "For sale"}
+            />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
+            <Field label="Parcel number" value={listing.parcelNumber ?? "—"} />
           </Grid.Col>
           <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
             <Field label="Listed on" value={formatDate(listing.listedOn)} />

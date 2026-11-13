@@ -32,6 +32,13 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: 'draft',
       },
+      // Sale prices and monthly lease rents share the cents column below; this
+      // flag keeps a rent from being presented or reported as a sale price.
+      listingType: {
+        type: DataTypes.ENUM('sale', 'lease'),
+        allowNull: false,
+        defaultValue: 'sale',
+      },
       // Money is an integer count of cents. Storing dollars as a float means
       // $1,299,900.00 eventually prints as $1,299,899.99.
       listPriceCents: { type: DataTypes.BIGINT },
@@ -41,6 +48,7 @@ module.exports = (sequelize, DataTypes) => {
       livingAreaSqft: { type: DataTypes.INTEGER },
       lotAcres: { type: DataTypes.DECIMAL(10, 4) },
       yearBuilt: { type: DataTypes.INTEGER },
+      parcelNumber: { type: DataTypes.STRING },
       // DATEONLY: the day a listing hit the market is a calendar date, and
       // giving it a timezone only invites off-by-one-day bugs.
       listedOn: { type: DataTypes.DATEONLY },

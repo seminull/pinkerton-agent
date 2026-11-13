@@ -1,5 +1,5 @@
 import { apiError } from "./http";
-import type { ListingLookup } from "./types";
+import type { ListingLookup, ListingStatus } from "./types";
 
 // "Add with NTREIS": turning a Matrix shared link into a draft listing.
 //
@@ -59,6 +59,7 @@ const isMatrixHost = (url: URL): boolean =>
 // Redirects are followed by hand so each hop is checked against the allowlist.
 // fetch's own "follow" would happily leave the host the first check approved.
 const fetchWithinMatrix = async (start: URL, timeoutMs: number): Promise<Response> => {
+  if (!isMatrixHost(start)) throw new Error(`refused non-Matrix host ${start.hostname}`);
   let url = start;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
     const response = await fetch(url, {
@@ -75,6 +76,29 @@ const fetchWithinMatrix = async (start: URL, timeoutMs: number): Promise<Respons
   throw new Error("too many redirects");
 };
 
+const readBounded = async (response: Response, maxBytes: number): Promise<Buffer> => {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    throw new Error(`response is larger than ${maxBytes} bytes`);
+  }
+  if (!response.body) return Buffer.alloc(0);
+
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new Error(`response is larger than ${maxBytes} bytes`);
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks, total);
+};
+
 // --- Reading the page --------------------------------------------------------
 
 const ENTITIES: Record<string, string> = {
@@ -88,9 +112,11 @@ const ENTITIES: Record<string, string> = {
 
 const decodeEntities = (value: string): string =>
   value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code: string) => {
-    if (code[0] !== "#") return ENTITIES[code.toLowerCase()] ?? whole;
+    if (!code.startsWith("#")) return ENTITIES[code.toLowerCase()] ?? whole;
     const point =
-      code[1].toLowerCase() === "x" ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+      code[1]?.toLowerCase() === "x"
+        ? parseInt(code.slice(2), 16)
+        : parseInt(code.slice(1), 10);
     // An out-of-range reference would make fromCodePoint throw; leave it as
     // written rather than fail the whole import over one character.
     return Number.isInteger(point) && point > 0 && point <= 0x10ffff
@@ -106,7 +132,7 @@ const toText = (markup: string): string =>
 
 const first = (html: string, pattern: RegExp): string => {
   const match = pattern.exec(html);
-  return match ? toText(match[1]) : "";
+  return match?.[1] ? toText(match[1]) : "";
 };
 
 // Every "Label  Value" row on the page, keyed by label. Matrix draws these two
@@ -120,8 +146,8 @@ const readFields = (html: string): Map<string, string> => {
   const row =
     /<span class="d-textStrong[^"]*">([\s\S]*?)<\/span>(?:\s*<\/div>\s*<div[^>]*>)?\s*<span class="d-text(?!Strong)[^"]*">([\s\S]*?)<\/span>/gi;
   for (const match of html.matchAll(row)) {
-    const label = toText(match[1]);
-    const value = toText(match[2]);
+    const label = match[1] ? toText(match[1]) : "";
+    const value = match[2] ? toText(match[2]) : "";
     if (label && value && !fields.has(label)) fields.set(label, value);
   }
   return fields;
@@ -146,7 +172,9 @@ const positive = (value: string | undefined): number | null => {
 // accepted, which here is `pending`. Order matters — those must be tested
 // before plain "active". An unrecognised status becomes null and the form
 // falls back to Draft, which is visibly unfinished rather than quietly wrong.
-const STATUS_RULES: [RegExp, NonNullable<ListingLookup["draft"]["status"]>][] = [
+type MatrixDraftStatus = Exclude<ListingStatus, "draft">;
+
+const STATUS_RULES: [RegExp, MatrixDraftStatus][] = [
   [/coming soon/i, "coming_soon"],
   [/option|contingent|kick ?out|\bko\b|pending/i, "pending"],
   [/^active/i, "active"],
@@ -155,7 +183,7 @@ const STATUS_RULES: [RegExp, NonNullable<ListingLookup["draft"]["status"]>][] = 
   [/expired/i, "expired"],
 ];
 
-const mapStatus = (text: string): ListingLookup["draft"]["status"] =>
+const mapStatus = (text: string): MatrixDraftStatus | null =>
   STATUS_RULES.find(([pattern]) => pattern.test(text))?.[1] ?? null;
 
 // The page spells the state out. NTREIS is North Texas, so in practice this is
@@ -224,11 +252,15 @@ const buildNotes = (
 const readPhotoUrls = (html: string, origin: string): string[] => {
   const best = new Map<number, { size: number; url: string }>();
   for (const match of html.matchAll(/'(\d+)_(\d+)'\s*:\s*'(https:\/\/[^']+)'/g)) {
-    const number = Number(match[1]);
-    const size = Number(match[2]);
+    const numberText = match[1];
+    const sizeText = match[2];
+    const address = match[3];
+    if (!numberText || !sizeText || !address) continue;
+    const number = Number(numberText);
+    const size = Number(sizeText);
     let url: URL;
     try {
-      url = new URL(decodeEntities(match[3]));
+      url = new URL(decodeEntities(address));
     } catch {
       continue;
     }
@@ -257,8 +289,7 @@ export const readMatrixListing = async (link: URL): Promise<MatrixListing> => {
   try {
     const response = await fetchWithinMatrix(link, PAGE_TIMEOUT_MS);
     if (!response.ok) throw new Error(`answered ${response.status}`);
-    html = await response.text();
-    if (html.length > MAX_PAGE_BYTES) throw new Error("page too large");
+    html = new TextDecoder().decode(await readBounded(response, MAX_PAGE_BYTES));
   } catch (err) {
     console.error("Matrix shared link: request failed:", err);
     throw apiError(502, "matrix_link_unavailable");
@@ -271,9 +302,9 @@ export const readMatrixListing = async (link: URL): Promise<MatrixListing> => {
     /d-mega[^"]*"[^>]*>\s*<span class="formula J_formula">([\s\S]*?)<\/span>[\s\S]*?<span class="formula J_formula">([\s\S]*?)<\/span>/i.exec(
       html
     );
-  const street = header ? toText(header[1]) : "";
+  const street = header?.[1] ? toText(header[1]) : "";
   const locality = /^(.*?),\s*([A-Za-z .]+?)\s+(\d{5}(?:-\d{4})?)$/.exec(
-    header ? toText(header[2]) : ""
+    header?.[2] ? toText(header[2]) : ""
   );
 
   const mlsNumber =
@@ -304,8 +335,8 @@ export const readMatrixListing = async (link: URL): Promise<MatrixListing> => {
       quality: "exact",
       draft: {
         addressLine1: street,
-        city: locality?.[1].trim() ?? "",
-        state: locality ? stateCode(locality[2]) : "",
+        city: locality?.[1]?.trim() ?? "",
+        state: locality?.[2] ? stateCode(locality[2]) : "",
         postalCode: locality?.[3] ?? "",
         bedrooms: bedrooms === null ? null : Math.round(bedrooms),
         bathrooms: bathrooms > 0 ? bathrooms : null,
@@ -341,10 +372,7 @@ export const fetchMatrixPhoto = async (address: string, maxBytes: number): Promi
   try {
     const response = await fetchWithinMatrix(new URL(address), PHOTO_TIMEOUT_MS);
     if (!response.ok) return null;
-    // Refuse on the declared length before reading the body when one is given.
-    const declared = Number(response.headers.get("content-length"));
-    if (Number.isFinite(declared) && declared > maxBytes) return null;
-    const bytes = Buffer.from(await response.arrayBuffer());
+    const bytes = await readBounded(response, maxBytes);
     return bytes.length > 0 && bytes.length <= maxBytes ? bytes : null;
   } catch (err) {
     console.error("Matrix photo: request failed:", err);
