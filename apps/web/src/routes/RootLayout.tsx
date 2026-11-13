@@ -23,6 +23,7 @@ import {
 import { Link, Outlet, useLocation } from "react-router";
 import { useAuth } from "../auth/authContext";
 import { BrandMark } from "../brand/Brand";
+import ColorSchemeToggle from "./ColorSchemeToggle";
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: IconLayoutDashboard },
@@ -73,26 +74,31 @@ export default function RootLayout() {
           {/* AuthGate only renders this layout with a user, but the type is
               nullable and a guard is cheaper than a non-null assertion. */}
           {user && (
-            <Menu position="bottom-end" withArrow>
-              <Menu.Target>
-                <UnstyledButton ml="auto" aria-label="Account menu">
-                  <Group gap="xs">
-                    <Avatar src={user.avatarUrl} size="sm" radius="xl" color="rose">
-                      {(user.firstName[0] ?? user.email[0] ?? "").toUpperCase()}
-                    </Avatar>
-                    <Text size="sm" visibleFrom="sm">
-                      {`${user.firstName} ${user.lastName}`.trim()}
-                    </Text>
-                  </Group>
-                </UnstyledButton>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Label>{user.email}</Menu.Label>
-                <Menu.Item leftSection={<IconLogout size={16} />} onClick={signOut}>
-                  Sign out
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
+            // The group is what is pushed to the right edge (ml="auto"), so the
+            // toggle and the account menu travel together.
+            <Group ml="auto" gap="sm" wrap="nowrap">
+              <ColorSchemeToggle />
+              <Menu position="bottom-end" withArrow>
+                <Menu.Target>
+                  <UnstyledButton aria-label="Account menu">
+                    <Group gap="xs">
+                      <Avatar src={user.avatarUrl} size="sm" radius="xl" color="rose">
+                        {(user.firstName[0] ?? user.email[0] ?? "").toUpperCase()}
+                      </Avatar>
+                      <Text size="sm" visibleFrom="sm">
+                        {`${user.firstName} ${user.lastName}`.trim()}
+                      </Text>
+                    </Group>
+                  </UnstyledButton>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Label>{user.email}</Menu.Label>
+                  <Menu.Item leftSection={<IconLogout size={16} />} onClick={signOut}>
+                    Sign out
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            </Group>
           )}
         </Group>
       </AppShell.Header>

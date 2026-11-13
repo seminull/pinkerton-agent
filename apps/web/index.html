@@ -7,6 +7,26 @@
          with the browser's light/dark theme (see the <style> inside it). -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Pinkerton Agent</title>
+    <!-- Applies the saved light/dark choice before anything paints. Mantine
+         only sets this attribute once React has mounted; without this, someone
+         who chose dark on a light-mode computer gets a white flash on every
+         load. Mirrors Mantine's ColorSchemeScript: same storage key, same
+         "auto" fallback to the system setting. Inline and tiny on purpose - it
+         must run before the stylesheet's first paint, not after a fetch. -->
+    <script>
+      try {
+        var saved = localStorage.getItem("mantine-color-scheme-value");
+        var scheme =
+          saved === "light" || saved === "dark"
+            ? saved
+            : window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+        document.documentElement.setAttribute("data-mantine-color-scheme", scheme);
+      } catch (e) {
+        /* Storage blocked (private mode): Mantine falls back to the system setting. */
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

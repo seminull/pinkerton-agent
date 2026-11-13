@@ -14,6 +14,7 @@ import { useForm } from "@mantine/form";
 import { IconAlertCircle, IconBrandGoogle } from "@tabler/icons-react";
 import { ApiError } from "../api/client";
 import { BrandLogo } from "../brand/Brand";
+import ColorSchemeToggle from "../routes/ColorSchemeToggle";
 import { useAuth } from "./authContext";
 
 // The codes the Google callback can send back as ?auth_error= (see
@@ -93,6 +94,8 @@ export default function LoginPage() {
     // actually visible. When the card is taller than the screen (a phone on its
     // side), min-height lets the page grow and scroll rather than clipping.
     <Center mih="100dvh" p="md">
+      {/* No header on this page, so the toggle floats in the corner. */}
+      <ColorSchemeToggle affixed />
       {/* Tighter padding below the xs breakpoint: on a 320px phone the roomy
           desktop padding would leave the fields barely 220px wide. */}
       <Paper withBorder shadow="sm" p={{ base: "lg", xs: "xl" }} w="100%" maw={400}>
