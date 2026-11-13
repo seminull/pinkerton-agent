@@ -111,6 +111,26 @@ export default function Dashboard() {
         </Grid.Col>
       </Grid>
 
+      {/* Above the charts: today's work is what an agent opens the dashboard
+          to act on; the charts are for stepping back.
+          The same component the Time Clock uses, so the two can't disagree and a
+          segment clicked here opens the same editor. It reads only the
+          signed-in user's own entries, like everything else in the Time Clock. */}
+      <Card withBorder>
+        <Stack>
+          <Group justify="space-between">
+            <Title order={4}>Today&apos;s timeline</Title>
+            <Anchor component={Link} to="/time-clock" size="sm">
+              Open Time Clock
+            </Anchor>
+          </Group>
+          <DayTimeline
+            range={todayRange}
+            emptyText="Nothing tracked yet today. Start a task in the Time Clock and your day will be drawn here."
+          />
+        </Stack>
+      </Card>
+
       {dashboard.isError && (
         <Alert color="red" title="Couldn't load the dashboard">
           The server didn&apos;t answer. Refresh to try again.
@@ -136,24 +156,6 @@ export default function Dashboard() {
           </Grid.Col>
         </Grid>
       )}
-
-      {/* The same component the Time Clock uses, so the two can't disagree and a
-          segment clicked here opens the same editor. It reads only the
-          signed-in user's own entries, like everything else in the Time Clock. */}
-      <Card withBorder>
-        <Stack>
-          <Group justify="space-between">
-            <Title order={4}>Today&apos;s timeline</Title>
-            <Anchor component={Link} to="/time-clock" size="sm">
-              Open Time Clock
-            </Anchor>
-          </Group>
-          <DayTimeline
-            range={todayRange}
-            emptyText="Nothing tracked yet today. Start a task in the Time Clock and your day will be drawn here."
-          />
-        </Stack>
-      </Card>
     </PageStack>
   );
 }
