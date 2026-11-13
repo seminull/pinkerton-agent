@@ -200,9 +200,10 @@ cp .env.example .env    # first time only — then set a strong POSTGRES_PASSWOR
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --wait
 ```
 
-Re-run the same command to deploy a new version after `git pull`. It is
-idempotent, and a failed migration stops the deploy before the running API is
-replaced.
+To deploy a new version later, run `scripts/deploy.sh` on the server from
+inside the repo. It pulls the current branch, runs that same command, and
+checks the result (`--no-pull` skips the pull). It is idempotent, and a failed
+migration stops the deploy before the running API is replaced.
 
 | Container            | Role                                             | Host port        |
 | -------------------- | ------------------------------------------------ | ---------------- |
