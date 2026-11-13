@@ -133,6 +133,42 @@ pnpm check                # typecheck + lint — run before calling work done
 `pnpm dev:api` and `pnpm dev:web` run the halves separately. The API reads
 `.env` (copy `.env.example`).
 
+## Branches and deploying
+
+**`main` is the only branch.** This is a solo project: commit to `main` and push
+it. No feature branches, no pull requests, unless Mike asks for one for a
+particular change. (`auth-foundation` and `production-deploy` are leftovers from
+the first days; they are not used and nothing deploys from them.)
+
+Production is one server, `ten-eighty`, which runs whatever `main` is. It has
+Docker only — no Node, no pnpm.
+
+```bash
+pnpm check                       # before every commit
+git push                         # main
+ssh seminull@ten-eighty 'cd ~/pinkerton-agent && scripts/deploy.sh'
+```
+
+`scripts/deploy.sh` backs up the database, pulls `main`, rebuilds the images,
+runs pending migrations, replaces the containers, and checks `/api/health`. It
+is safe to re-run. Afterwards, `https://pinkertonagent.com/` should answer 200
+and `https://pinkertonagent.com/api/contacts` 401 (signed out).
+
+Things that have gone wrong on that server, so they don't again:
+
+- **Never set a `umask` in an SSH session that also pulls or deploys.** Source
+  files pulled under `umask 077` are unreadable to the containers' non-root
+  user, and the app fails to start. Protect a file with an explicit `chmod`.
+- **Its login shell is zsh.** A command stored in a variable (`$C up -d`) is not
+  split into words — use a shell function. A variable named `path` replaces
+  `PATH` and every command becomes "not found".
+- **The server's `.env` already exists** and holds the database password and
+  integration key. Never overwrite it, print it, or commit one.
+- **BigDistrict runs on the same machine** (its own containers, port 80). A
+  Pinkerton deploy must not touch them.
+- **Several sessions may be working in this checkout at once.** `git pull`
+  before starting, and commit only the files you changed.
+
 ## Things not built yet
 
 No tests, no CI. Auth exists (see "Sign-in" in `readme.md`) but stops at
