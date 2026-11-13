@@ -1,4 +1,4 @@
-import { Tabs, Text, Title } from "@mantine/core";
+import { Tabs, Title } from "@mantine/core";
 import { IconCalendar, IconClock } from "@tabler/icons-react";
 import { useSearchParams } from "react-router";
 import PageStack from "../motion/PageStack";
@@ -40,13 +40,7 @@ export default function TimeClock() {
 
   return (
     <PageStack>
-      <div>
-        <Title order={2}>Time Clock</Title>
-        <Text c="dimmed" size="sm">
-          Enter a task, press Start, and press Stop when you&apos;re done. Start and end times
-          are recorded automatically and saved to your account.
-        </Text>
-      </div>
+      <Title order={2}>Time Clock</Title>
 
       {/* keepMounted={false}: only the visible tab exists. The hidden one would
           otherwise keep fetching, and re-mounting on switch is what replays the
