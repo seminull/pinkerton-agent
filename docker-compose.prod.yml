@@ -65,6 +65,14 @@ services:
     # network.
     environment:
       <<: *database-url
+      # Sign-in settings, passed through from .env (see .env.example). All
+      # optional: with none set, password accounts made by the create-user
+      # command still work and the Google button simply isn't offered.
+      AUTH_ALLOWED_EMAILS: ${AUTH_ALLOWED_EMAILS:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

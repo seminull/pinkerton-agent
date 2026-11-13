@@ -12,3 +12,13 @@ export interface ApiError {
   /** Present on 422s: which fields failed and why. */
   details?: Record<string, string>;
 }
+
+/** The signed-in user as the client sees them. Never the row — no hash. */
+export interface AuthUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+  role: "user" | "admin";
+}

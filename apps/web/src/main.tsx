@@ -7,6 +7,8 @@ import { Notifications } from "@mantine/notifications";
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/notifications/styles.css";
+import AuthGate from "./auth/AuthGate";
+import AuthProvider from "./auth/AuthProvider";
 import { routes } from "./router";
 import { theme } from "./theme";
 
@@ -28,7 +30,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <MantineProvider theme={theme} defaultColorScheme="auto">
         <Notifications position="top-right" />
-        <RouterProvider router={router} />
+        {/* Inside QueryClientProvider because signing out clears the query
+            cache; outside the router so the login screen answers every URL. */}
+        <AuthProvider>
+          <AuthGate>
+            <RouterProvider router={router} />
+          </AuthGate>
+        </AuthProvider>
       </MantineProvider>
     </QueryClientProvider>
   </React.StrictMode>

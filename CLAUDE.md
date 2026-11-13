@@ -35,7 +35,10 @@ yarn; Sequelize, not Prisma or Drizzle; Mantine, not shadcn or MUI.
 
 ```
 server/                  API. TypeScript, run with tsx.
-  index.ts               Entry: middleware, health, route mounting.
+  index.ts               Entry: middleware, health, the session gate, route mounting.
+  auth.ts                Sessions, cookies, the requireSession gate, the allowlist.
+  password.ts            Argon2id hashing (node:crypto — no dependency).
+  create-user.ts         CLI: `pnpm user:create`. The only way a password account is made.
   http.ts                Shared request helpers (pagination, allowlists, errors).
   types.ts               Wire types — what the API sends, not what the table holds.
   routes/*.routes.ts     One file per resource.
@@ -45,6 +48,7 @@ server/                  API. TypeScript, run with tsx.
     seeders/             Demo data.
 apps/web/                Vite + React client (@pinkertonagent/web).
   src/api/               fetch wrapper and wire types.
+  src/auth/              AuthProvider, the AuthGate around the router, the login page.
   src/<resource>/        Feature folder: queries.ts + components, colocated.
   src/routes/            Layout, error, 404, dashboard.
   src/router.tsx         Route table, kept out of main.tsx so it's testable.
@@ -71,6 +75,14 @@ the list deliberately; never replace it with a passthrough.
 Throw via `apiError()` from `server/http.ts` — it attaches the JSON body to the
 exception, which is required because sub-apps mounted with `app.route()` handle
 their own errors and never reach the root `onError`.
+
+**The API is closed by position.** `server/index.ts` mounts `requireSession` on
+`/api/*` partway down the file: routers mounted below that line need a session,
+the ones above it (health, auth) don't. New resource routers go below. There is
+no sign-up route and there must not be one — this is a private CRM, and accounts
+come only from `pnpm user:create` or a Google sign-in by an address in
+`AUTH_ALLOWED_EMAILS`. The client-side `AuthGate` is a convenience; the server
+check is the control.
 
 **The client calls relative `/api` paths.** Never an absolute origin — that URL
 would be resolved by the visitor's browser on their machine. Vite proxies `/api`
@@ -102,8 +114,8 @@ pnpm check                # typecheck + lint — run before calling work done
 
 ## Things not built yet
 
-No auth, no tests, no CI. (A `Dockerfile` and `docker-compose.prod.yml` exist —
-see "Production" in `readme.md` — but with no auth, a deployment is only as
-private as whatever sits in front of it.)
+No tests, no CI. Auth exists (see "Sign-in" in `readme.md`) but stops at
+"who are you": there is no `organizationId` or owner on the CRM tables, so every
+signed-in user sees all data, and no password-reset or change-password flow.
 These are known gaps, not oversights — see `PLAN.md` for the order they're meant
 to land in. Don't quietly add a dependency for one of them without raising it.

@@ -63,11 +63,77 @@ export interface ActivityAttributes {
   updatedAt: Date;
 }
 
+export interface UserAttributes {
+  id: string;
+  /** Always lowercased and trimmed. */
+  email: string;
+  /** NULL for an account that only signs in through a provider. */
+  passwordHash: string | null;
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+  /** user | admin */
+  role: string;
+  /** active | disabled */
+  status: string;
+  /** Set only once a provider has vouched for the address. */
+  emailVerifiedAt: Date | null;
+  lastLoginAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AuthIdentityAttributes {
+  id: string;
+  userId: string;
+  /** google */
+  provider: string;
+  /** The provider's stable subject id — the real key, not the email. */
+  providerUserId: string;
+  providerEmail: string | null;
+  profile: Record<string, unknown>;
+  lastUsedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UserSessionAttributes {
+  id: string;
+  userId: string;
+  /** SHA-256 hex of the cookie token. The token itself is never stored. */
+  tokenHash: string;
+  userAgent: string | null;
+  lastSeenAt: Date;
+  expiresAt: Date;
+  revokedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Columns the database or Sequelize fills in, so `create()` doesn't demand them.
+type Generated = "id" | "createdAt" | "updatedAt";
+
 export type ContactInstance = Model<ContactAttributes> & ContactAttributes;
 export type ListingInstance = Model<ListingAttributes> & ListingAttributes;
 export type ActivityInstance = Model<ActivityAttributes> & ActivityAttributes;
+
+export type UserInstance = Model<UserAttributes, Omit<UserAttributes, Generated>> &
+  UserAttributes;
+export type AuthIdentityInstance = Model<
+  AuthIdentityAttributes,
+  Omit<AuthIdentityAttributes, Generated>
+> &
+  AuthIdentityAttributes;
+export type UserSessionInstance = Model<
+  UserSessionAttributes,
+  Omit<UserSessionAttributes, Generated>
+> &
+  UserSessionAttributes;
 
 export const sequelize: Sequelize;
 export const Contact: ModelStatic<ContactInstance>;
 export const Listing: ModelStatic<ListingInstance>;
 export const Activity: ModelStatic<ActivityInstance>;
+export const User: ModelStatic<UserInstance>;
+export const AuthIdentity: ModelStatic<AuthIdentityInstance>;
+export const UserSession: ModelStatic<UserSessionInstance>;

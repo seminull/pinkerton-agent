@@ -88,3 +88,20 @@ export interface ListResponse<T> {
   results: T[];
   total: number;
 }
+
+/** The signed-in user. Mirrors `AuthUser` in server/types.ts. */
+export interface AuthUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+  role: "user" | "admin";
+}
+
+/** GET /api/auth/me — `user` is null when nobody is signed in. */
+export interface AuthStatus {
+  user: AuthUser | null;
+  /** Which sign-in buttons the server can actually honour. */
+  providers: { google: boolean };
+}

@@ -1,7 +1,24 @@
-import { AppShell, Burger, Group, NavLink, Text, Title } from "@mantine/core";
+import {
+  AppShell,
+  Avatar,
+  Burger,
+  Group,
+  Menu,
+  NavLink,
+  Text,
+  Title,
+  UnstyledButton,
+} from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconAddressBook, IconHome, IconLayoutDashboard } from "@tabler/icons-react";
+import { notifications } from "@mantine/notifications";
+import {
+  IconAddressBook,
+  IconHome,
+  IconLayoutDashboard,
+  IconLogout,
+} from "@tabler/icons-react";
 import { Link, Outlet, useLocation } from "react-router";
+import { useAuth } from "../auth/authContext";
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: IconLayoutDashboard },
@@ -14,6 +31,20 @@ export default function RootLayout() {
   // open, so `desktop: false` keeps it pinned regardless of this state.
   const [opened, { toggle }] = useDisclosure();
   const { pathname } = useLocation();
+  const { user, logout } = useAuth();
+
+  const signOut = () => {
+    // If the request fails the session is still live on the server, so stay
+    // signed in and say so — pretending it worked would leave an open session
+    // on a computer the agent believes they've signed out of.
+    logout().catch(() =>
+      notifications.show({
+        color: "red",
+        title: "Couldn't sign out",
+        message: "The server didn't respond. Please try again.",
+      })
+    );
+  };
 
   return (
     <AppShell
@@ -32,6 +63,31 @@ export default function RootLayout() {
           <Text size="xs" c="dimmed">
             CRM
           </Text>
+
+          {/* AuthGate only renders this layout with a user, but the type is
+              nullable and a guard is cheaper than a non-null assertion. */}
+          {user && (
+            <Menu position="bottom-end" withArrow>
+              <Menu.Target>
+                <UnstyledButton ml="auto" aria-label="Account menu">
+                  <Group gap="xs">
+                    <Avatar src={user.avatarUrl} size="sm" radius="xl" color="indigo">
+                      {(user.firstName[0] ?? user.email[0] ?? "").toUpperCase()}
+                    </Avatar>
+                    <Text size="sm" visibleFrom="sm">
+                      {`${user.firstName} ${user.lastName}`.trim()}
+                    </Text>
+                  </Group>
+                </UnstyledButton>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label>{user.email}</Menu.Label>
+                <Menu.Item leftSection={<IconLogout size={16} />} onClick={signOut}>
+                  Sign out
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          )}
         </Group>
       </AppShell.Header>
 

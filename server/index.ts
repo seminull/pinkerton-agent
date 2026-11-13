@@ -4,7 +4,9 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import { ConnectionError } from "sequelize";
+import { requireSession, type AuthEnv } from "./auth";
 import { sequelize } from "./sequelize/models";
+import authRoutes from "./routes/auth.routes";
 import contactRoutes from "./routes/contacts.routes";
 import listingRoutes from "./routes/listings.routes";
 import activityRoutes from "./routes/activities.routes";
@@ -26,7 +28,7 @@ const withTimeout = <T>(promise: Promise<T>, label: string): Promise<T> =>
     ),
   ]);
 
-const app = new Hono();
+const app = new Hono<AuthEnv>();
 
 // Final safety net: an unhandled route error must never reach the browser as a
 // plain-text 500, because the client can't parse that into an error message.
@@ -80,6 +82,16 @@ app.get("/api/health", async (c) => {
     pg ? 200 : 503
   );
 });
+
+// Sign-in itself has to be reachable signed out, so it is mounted above the gate.
+app.route("/api/auth", authRoutes);
+
+// ---- the gate ------------------------------------------------------------
+// Hono runs middleware in registration order, so everything mounted BELOW this
+// line requires a session and everything above it (health, auth) does not.
+// Add new resource routers below. Putting one above is a decision to make it
+// public — the position is the access control.
+app.use("/api/*", requireSession);
 
 app.route("/api/contacts", contactRoutes);
 app.route("/api/listings", listingRoutes);

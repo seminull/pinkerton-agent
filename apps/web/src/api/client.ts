@@ -16,6 +16,12 @@ export class ApiError extends Error {
   }
 }
 
+// Fired when a data request comes back 401 — the session expired, was revoked,
+// or the account was disabled while the app was open. AuthProvider listens and
+// drops back to the login screen. An event rather than an import because this
+// module sits underneath the auth code, not above it.
+export const UNAUTHORIZED_EVENT = "pinkerton:unauthorized";
+
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -30,6 +36,11 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
     // still put HTML in front of us — treat an unparseable body as a generic
     // failure rather than throwing a SyntaxError from the error handler itself.
     const body = await res.json().catch(() => null);
+    // Not for /auth/*: a 401 from the login form means "wrong password", which
+    // the form reports itself — it is not a session ending.
+    if (res.status === 401 && !path.startsWith("/auth/")) {
+      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    }
     throw new ApiError(
       res.status,
       body?.error ?? `http_${res.status}`,
