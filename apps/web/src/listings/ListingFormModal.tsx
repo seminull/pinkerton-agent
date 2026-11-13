@@ -30,6 +30,7 @@ import {
   useUpdateListing,
   type ListingInput,
 } from "./queries";
+import type { MatrixResolutionMode } from "./ResolveMatrixDuplicateModal";
 
 const STATUS_OPTIONS: { value: ListingStatus; label: string }[] = [
   { value: "draft", label: "Draft" },
@@ -56,6 +57,8 @@ interface Props {
    * Ignored when editing an existing listing.
    */
   lookup?: ListingLookup;
+  matrixMode?: MatrixResolutionMode;
+  replaceMatrixPhotos?: boolean;
 }
 
 // What the form says above its fields when it was opened from a lookup: where
@@ -63,9 +66,26 @@ interface Props {
 // matter — a confident match can be skimmed, a probable one needs its address
 // checked, and a miss means only the address was filled in.
 const lookupNotice = (
-  lookup: ListingLookup
+  lookup: ListingLookup,
+  matrixMode?: MatrixResolutionMode
 ): { color: string; title: string; message: string } => {
   if (lookup.source === "matrix") {
+    if (matrixMode === "full") {
+      return {
+        color: "orange",
+        title: "Review Full Replace",
+        message:
+          "These values come from Matrix. Saving replaces all editable property fields and replaces the current photo gallery only after the complete Matrix gallery downloads successfully.",
+      };
+    }
+    if (matrixMode === "partial") {
+      return {
+        color: "blue",
+        title: "Review Partial Replace",
+        message:
+          "The choices from the comparison are loaded below. You can make final edits before replacing the existing property.",
+      };
+    }
     return {
       color: "green",
       title: "Loaded from NTREIS Matrix",
@@ -130,7 +150,14 @@ const isWebUrl = (value: string): boolean => {
   }
 };
 
-export default function ListingFormModal({ opened, onClose, listing, lookup }: Props) {
+export default function ListingFormModal({
+  opened,
+  onClose,
+  listing,
+  lookup,
+  matrixMode,
+  replaceMatrixPhotos = false,
+}: Props) {
   // An edit never takes a draft: its values are the listing's own.
   const draft = listing ? undefined : lookup?.draft;
   const create = useCreateListing();
@@ -236,45 +263,93 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
       notes: rest.notes || null,
     };
 
+    const copyMatrixPhotos = async (
+      listingId: string,
+      replace: boolean
+    ): Promise<{ message: string; warning: boolean }> => {
+      if (lookup?.source !== "matrix" || (!replace && lookup.photoCount === 0)) {
+        return { message: "", warning: false };
+      }
+      try {
+        const photos = await importMatrixPhotos.mutateAsync({
+          listingId,
+          url: lookup.sourceUrl,
+          replace,
+        });
+        if (replace) {
+          if (!photos.replaced) {
+            return {
+              message: " Matrix photos could not be copied completely, so the current gallery was kept.",
+              warning: true,
+            };
+          }
+          return {
+            message: ` The gallery was replaced with ${photos.imported.toLocaleString()} Matrix photo${
+              photos.imported === 1 ? "" : "s"
+            }.`,
+            warning: false,
+          };
+        }
+
+        let message = "";
+        if (photos.imported > 0) {
+          message = ` ${photos.imported.toLocaleString()} photo${
+            photos.imported === 1 ? " was" : "s were"
+          } copied.`;
+        }
+        if (photos.failed > 0 || photos.omitted > 0) {
+          message += ` ${(photos.failed + photos.omitted).toLocaleString()} photo${
+            photos.failed + photos.omitted === 1 ? " was" : "s were"
+          } not copied.`;
+        }
+        return {
+          message,
+          warning: photos.failed > 0 || photos.omitted > 0,
+        };
+      } catch {
+        return {
+          message: replace
+            ? " Matrix photos could not be copied, so the current gallery was kept."
+            : " The property was saved, but its Matrix photos could not be copied.",
+          warning: true,
+        };
+      }
+    };
+
     try {
       if (listing) {
         await update.mutateAsync({ id: listing.id, ...payload });
-        notifications.show({ message: "Listing updated", color: "green" });
+        // A partial replace can explicitly keep the current gallery. Only call
+        // the Matrix importer for an edit when the comparison chose Matrix.
+        const photos = replaceMatrixPhotos
+          ? await copyMatrixPhotos(listing.id, true)
+          : { message: "", warning: false };
+        notifications.show({
+          message: `${matrixMode ? "Property replaced" : "Listing updated"}.${photos.message}`,
+          color: photos.warning ? "yellow" : "green",
+          autoClose: 8000,
+        });
       } else {
         const result = await create.mutateAsync(payload);
-        let photoMessage = "";
-        if (lookup?.source === "matrix" && lookup.photoCount > 0) {
-          try {
-            const photos = await importMatrixPhotos.mutateAsync({
-              listingId: result.listing.id,
-              url: lookup.sourceUrl,
-            });
-            if (photos.imported > 0) {
-              photoMessage = ` ${photos.imported.toLocaleString()} photo${photos.imported === 1 ? " was" : "s were"} copied.`;
-            }
-            if (photos.failed > 0 || photos.omitted > 0) {
-              photoMessage += ` ${(photos.failed + photos.omitted).toLocaleString()} photo${
-                photos.failed + photos.omitted === 1 ? " was" : "s were"
-              } not copied.`;
-            }
-          } catch {
-            photoMessage = " The property was created, but its Matrix photos could not be copied.";
-          }
-        }
+        const photos = await copyMatrixPhotos(result.listing.id, false);
         notifications.show({
-          message: `Listing created.${photoMessage}`,
-          color: photoMessage.includes("not copied") || photoMessage.includes("could not")
-            ? "yellow"
-            : "green",
+          message: `Listing created.${photos.message}`,
+          color: photos.warning ? "yellow" : "green",
           autoClose: 8000,
         });
       }
       form.reset();
       onClose();
     } catch (error) {
+      const message =
+        error instanceof ApiError && error.code === "mls_number_already_exists"
+          ? "A property with this MLS number already exists."
+          : error instanceof ApiError
+            ? error.code.replace(/_/g, " ")
+            : "Unexpected error";
       notifications.show({
         title: "Save failed",
-        message: error instanceof ApiError ? error.code : "Unexpected error",
+        message,
         color: "red",
       });
     }
@@ -294,9 +369,12 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
       <form onSubmit={handleSubmit}>
         <Stack gap="sm">
           {/* Only when this form was opened from a listing lookup. */}
-          {!listing && lookup && (
-            <Alert color={lookupNotice(lookup).color} title={lookupNotice(lookup).title}>
-              {lookupNotice(lookup).message}
+          {lookup && (!listing || matrixMode) && (
+            <Alert
+              color={lookupNotice(lookup, matrixMode).color}
+              title={lookupNotice(lookup, matrixMode).title}
+            >
+              {lookupNotice(lookup, matrixMode).message}
             </Alert>
           )}
           <TextInput
@@ -448,7 +526,13 @@ export default function ListingFormModal({ opened, onClose, listing, lookup }: P
               type="submit"
               loading={create.isPending || update.isPending || importMatrixPhotos.isPending}
             >
-              {importMatrixPhotos.isPending ? "Copying photos" : isEdit ? "Save" : "Create"}
+              {importMatrixPhotos.isPending
+                ? "Copying photos"
+                : matrixMode === "full" || matrixMode === "partial"
+                  ? "Replace"
+                  : isEdit
+                    ? "Save"
+                    : "Create"}
             </Button>
           </Group>
         </Stack>

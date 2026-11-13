@@ -65,6 +65,7 @@ export interface Listing {
   sellerContactId: string | null;
   externalLinks: ExternalLink[];
   notes: string | null;
+  deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
   seller?: Contact | null;

@@ -7,7 +7,6 @@ import {
   detectListingImage,
   MAX_LISTING_PHOTO_BYTES,
   MAX_LISTING_PHOTOS,
-  removeAllListingPhotos,
   removeListingPhoto,
   writeListingPhoto,
 } from "../listing-media";
@@ -129,33 +128,88 @@ const matrixLinkFromBody = (body: unknown): URL => {
   return link;
 };
 
-// GET /api/listings/lookup — whether "Add with Zillow" is available, so the
-// client can hide the button instead of offering one that can only fail.
+const listingUrlFromBody = (body: unknown): string => {
+  const value = (body as { url?: unknown } | null)?.url;
+  if (typeof value !== "string" || !value.trim() || value.length > MAX_MATRIX_LINK_LENGTH) {
+    throw apiError(422, "unsupported_listing_url");
+  }
+  return value.trim();
+};
+
+const isZillowUrl = (raw: string): boolean => {
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    const hostname = url.hostname.toLowerCase();
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      (hostname === "zillow.com" || hostname.endsWith(".zillow.com"))
+    );
+  } catch {
+    return false;
+  }
+};
+
+const readMatrixLookup = async (link: URL) => {
+  const { lookup } = await readMatrixListing(link);
+  const draft = lookup.draft;
+  const byMls = draft.mlsNumber
+    ? await Listing.findOne({
+        where: { mlsNumber: draft.mlsNumber },
+        include: [{ model: Contact, as: "seller" }],
+        order: [["updatedAt", "DESC"]],
+      })
+    : null;
+  const postalPrefix = draft.postalCode.slice(0, 5);
+  const byAddress =
+    !byMls && draft.addressLine1 && draft.city && draft.state && postalPrefix
+      ? await Listing.findOne({
+          where: {
+            addressLine1: { [Op.iLike]: draft.addressLine1.trim() },
+            city: { [Op.iLike]: draft.city.trim() },
+            state: { [Op.iLike]: draft.state.trim() },
+            postalCode: { [Op.like]: `${postalPrefix}%` },
+          },
+          include: [{ model: Contact, as: "seller" }],
+          order: [["updatedAt", "DESC"]],
+        })
+      : null;
+  const existingListing = byMls ?? byAddress;
+  const existingPhotoCount = existingListing
+    ? await ListingPhoto.count({ where: { listingId: existingListing.id } })
+    : 0;
+  return {
+    lookup,
+    existingListing,
+    existingPhotoCount,
+    matchReason: byMls ? ("mls" as const) : byAddress ? ("address" as const) : null,
+  };
+};
+
+// GET /api/listings/lookup — whether URL sources that need configuration are
+// available. Matrix shared links work without a key.
 app.get("/lookup", (c) => c.json({ available: bigDistrictConfigured() }));
 
 // POST /api/listings/lookup  { url }
-// Turns a Zillow link into a DRAFT listing — nothing is saved. The address is
-// read from the link and matched to county records by BigDistrict; see
-// server/bigdistrict.ts for why no listing site is ever contacted. The client
-// opens the normal new-listing form on the result, and the listing is only
-// created when the person reviews it and presses Create.
+// Selects the parser from the URL. Matrix shares are read directly; Zillow
+// links are matched to county records through BigDistrict. Both return the same
+// draft envelope, and nothing is stored until the review form is saved.
 app.post("/lookup", async (c) => {
   const body: unknown = await c.req.json().catch(() => null);
-  const url = (body as { url?: unknown } | null)?.url;
-  // Bounded before it is forwarded anywhere: it is free text from a form.
-  if (typeof url !== "string" || !url.trim() || url.length > 600) {
+  const url = listingUrlFromBody(body);
+  const matrixLink = parseMatrixSharedLink(url);
+  if (matrixLink) return c.json(await readMatrixLookup(matrixLink));
+
+  // Only Zillow is sent to BigDistrict. Source selection belongs here rather
+  // than in the browser, and an unrelated URL is never forwarded to a service.
+  if (!isZillowUrl(url) || url.length > 600) {
     throw apiError(422, "unsupported_listing_url");
   }
-  return c.json({ lookup: await lookupListing(url.trim(), c.get("auth").user.id) });
-});
-
-// A public Matrix share contains the MLS's own listing data. It is fetched by
-// the server (not the browser, where CORS blocks it) and returned only as a
-// draft for review. Nothing is stored until the ordinary create form is saved.
-app.post("/matrix/lookup", async (c) => {
-  const body: unknown = await c.req.json().catch(() => null);
-  const { lookup } = await readMatrixListing(matrixLinkFromBody(body));
-  return c.json({ lookup });
+  return c.json({
+    lookup: await lookupListing(url, c.get("auth").user.id),
+    existingListing: null,
+    existingPhotoCount: 0,
+    matchReason: null,
+  });
 });
 
 // GET /api/listings?q=&status=&city=&minPrice=&maxPrice=&sort=&dir=&limit=&offset=
@@ -251,15 +305,30 @@ app.post("/:id/matrix-photos", async (c) => {
   if (!listing) throw apiError(404, "listing_not_found");
 
   const body: unknown = await c.req.json().catch(() => null);
+  const replace = (body as { replace?: unknown } | null)?.replace === true;
   const matrix = await readMatrixListing(matrixLinkFromBody(body));
   const matrixMls = matrix.lookup.draft.mlsNumber;
-  if (listing.mlsNumber && matrixMls && listing.mlsNumber !== matrixMls) {
+  const matrixDraft = matrix.lookup.draft;
+  const sameAddress =
+    listing.addressLine1.trim().toLowerCase() ===
+      matrixDraft.addressLine1.trim().toLowerCase() &&
+    listing.city.trim().toLowerCase() === matrixDraft.city.trim().toLowerCase() &&
+    listing.state.trim().toLowerCase() === matrixDraft.state.trim().toLowerCase() &&
+    listing.postalCode.slice(0, 5) === matrixDraft.postalCode.slice(0, 5);
+  // Partial replacement may intentionally retain the current MLS number while
+  // selecting Matrix photos. Permit that only for the same exact property.
+  if (
+    listing.mlsNumber &&
+    matrixMls &&
+    listing.mlsNumber !== matrixMls &&
+    !(replace && sameAddress)
+  ) {
     throw apiError(422, "matrix_listing_mismatch");
   }
 
   const existing = await ListingPhoto.findAll({
     where: { listingId: id },
-    attributes: ["originalName", "position"],
+    attributes: ["id", "storageKey", "originalName", "position"],
   });
   const existingNames = new Set(existing.map((photo) => photo.originalName));
   const safeMls = (matrixMls || "listing").replace(/[^a-z0-9_-]/gi, "-");
@@ -268,13 +337,22 @@ app.post("/:id/matrix-photos", async (c) => {
     index,
     stem: `matrix-${safeMls}-${index + 1}`,
   }));
-  const alreadyPresent = items.filter((item) =>
-    [...existingNames].some((name) => name.startsWith(`${item.stem}.`))
-  ).length;
-  const pending = items.filter(
-    (item) => ![...existingNames].some((name) => name.startsWith(`${item.stem}.`))
-  );
-  const capacity = Math.max(0, MAX_LISTING_PHOTOS - existing.length);
+  const alreadyPresent = replace
+    ? 0
+    : items.filter((item) =>
+        [...existingNames].some((name) => name.startsWith(`${item.stem}.`))
+      ).length;
+  const pending = replace
+    ? items
+    : items.filter(
+        (item) => ![...existingNames].some((name) => name.startsWith(`${item.stem}.`))
+      );
+  // Replacement photos may temporarily coexist with the old set. They are
+  // committed only after every new image is safely stored, so a network
+  // failure never destroys the user's current gallery.
+  const capacity = replace
+    ? MAX_LISTING_PHOTOS
+    : Math.max(0, MAX_LISTING_PHOTOS - existing.length);
   const selected = pending.slice(0, capacity);
   const omitted = pending.length - selected.length;
   const nextPosition =
@@ -282,6 +360,7 @@ app.post("/:id/matrix-photos", async (c) => {
   let cursor = 0;
   let imported = 0;
   let failed = 0;
+  const createdPhotos: Array<{ id: string; storageKey: string }> = [];
 
   const worker = async () => {
     while (cursor < selected.length) {
@@ -299,14 +378,15 @@ app.post("/:id/matrix-photos", async (c) => {
 
         storageKey = `${randomUUID()}.${detected.extension}`;
         await writeListingPhoto(id, storageKey, bytes);
-        await ListingPhoto.create({
+        const photo = await ListingPhoto.create({
           listingId: id,
           storageKey,
           originalName: `${item.stem}.${detected.extension}`,
           contentType: detected.contentType,
           sizeBytes: bytes.length,
-          position: nextPosition + selectionIndex,
+          position: replace ? selectionIndex : nextPosition + selectionIndex,
         });
+        createdPhotos.push({ id: photo.id, storageKey });
         imported += 1;
       } catch (error) {
         failed += 1;
@@ -323,18 +403,38 @@ app.post("/:id/matrix-photos", async (c) => {
     )
   );
 
-  return c.json({ imported, alreadyPresent, failed, omitted });
+  let replaced = false;
+  if (replace && failed === 0 && omitted === 0) {
+    await ListingPhoto.destroy({ where: { id: existing.map((photo) => photo.id) } });
+    await Promise.all(
+      existing.map(async (photo) => {
+        await removeListingPhoto(id, photo.storageKey).catch((error: unknown) => {
+          console.error(`Could not remove replaced photo ${photo.id} for ${id}:`, error);
+        });
+      })
+    );
+    replaced = true;
+  } else if (replace) {
+    // New set was incomplete. Roll it back and leave the old gallery intact.
+    await ListingPhoto.destroy({ where: { id: createdPhotos.map((photo) => photo.id) } });
+    await Promise.all(
+      createdPhotos.map((photo) =>
+        removeListingPhoto(id, photo.storageKey).catch(() => undefined)
+      )
+    );
+    imported = 0;
+  }
+
+  return c.json({ imported, alreadyPresent, failed, omitted, replaced });
 });
 
 app.delete("/:id", async (c) => {
   const id = requireUuid(c.req.param("id"));
-  const deleted = await Listing.destroy({ where: { id } });
-  if (deleted === 0) throw apiError(404, "listing_not_found");
-  // The FK cascade removes metadata; the media directory is outside Postgres
-  // and must be removed separately after the listing itself is gone.
-  await removeAllListingPhotos(id).catch((error: unknown) => {
-    console.error(`Could not remove media for deleted listing ${id}:`, error);
-  });
+  const listing = await Listing.findByPk(id);
+  if (!listing) throw apiError(404, "listing_not_found");
+  // Listing is paranoid: this records deletedAt and deliberately preserves
+  // activities, photo metadata, and stored files for a future restore action.
+  await listing.destroy();
   return c.body(null, 204);
 });
 

@@ -1,7 +1,7 @@
 import { apiError } from "./http";
 import type { ListingLookup, ListingStatus } from "./types";
 
-// "Add with NTREIS": turning a Matrix shared link into a draft listing.
+// Turning a Matrix shared link from "Add with URL" into a draft listing.
 //
 // Matrix is the MLS's own application. An agent with NTREIS access can share a
 // listing from it, which produces a public page — no login — meant to be sent

@@ -16,9 +16,9 @@ module.exports = (sequelize, DataTypes) => {
       city: { type: DataTypes.STRING, allowNull: false },
       state: { type: DataTypes.STRING(2), allowNull: false },
       postalCode: { type: DataTypes.STRING(10), allowNull: false },
-      // Assigned by the MLS only once the listing goes live, so it's nullable —
-      // but unique, because two rows sharing one MLS number is always a bug.
-      mlsNumber: { type: DataTypes.STRING, unique: true },
+      // Assigned by the MLS only once the listing goes live. Duplicate imports
+      // are resolved in the UI, where the user may deliberately keep both.
+      mlsNumber: { type: DataTypes.STRING },
       status: {
         type: DataTypes.ENUM(
           'draft',
@@ -60,7 +60,10 @@ module.exports = (sequelize, DataTypes) => {
       externalLinks: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
       notes: { type: DataTypes.TEXT },
     },
-    { tableName: 'listings' }
+    // `destroy()` sets deletedAt. Normal queries automatically hide the row,
+    // while its related history and photo files remain available for a future
+    // restore screen or an explicit permanent purge.
+    { tableName: 'listings', paranoid: true }
   );
 
   Listing.associate = (models) => {

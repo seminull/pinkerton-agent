@@ -20,7 +20,7 @@ const baseUrl = (): string =>
   (process.env.BIGDISTRICT_API_URL?.trim() || "https://bigdistrict.app").replace(/\/$/, "");
 const apiKey = (): string | null => process.env.BIGDISTRICT_API_KEY?.trim() || null;
 
-/** Whether the "Add with Zillow" button can do anything. */
+/** Whether the unified URL lookup can handle Zillow links. */
 export const bigDistrictConfigured = (): boolean => apiKey() !== null;
 
 // A person is watching a spinner; BigDistrict answers in well under a second

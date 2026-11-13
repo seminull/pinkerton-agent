@@ -11,6 +11,7 @@ import {
   Group,
   Image,
   Loader,
+  Modal,
   SimpleGrid,
   Stack,
   Text,
@@ -24,10 +25,11 @@ import {
   IconExternalLink,
   IconPencil,
   IconPhoto,
+  IconTrash,
   IconUpload,
   IconX,
 } from "@tabler/icons-react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import Lightbox from "yet-another-react-lightbox";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { ApiError } from "../api/client";
@@ -37,6 +39,7 @@ import { LISTING_STATUS_COLORS } from "../theme";
 import ListingFormModal from "./ListingFormModal";
 import {
   listingPhotoUrl,
+  useDeleteListing,
   useListing,
   useListingPhotos,
   useUploadListingPhotos,
@@ -77,12 +80,36 @@ const linkHost = (url: string): string => {
 
 export default function ListingDetail() {
   const { listingId } = useParams();
+  const navigate = useNavigate();
   const { data, isPending, isError, error } = useListing(listingId);
   const photosQuery = useListingPhotos(listingId);
   const uploadPhotos = useUploadListingPhotos(listingId ?? "");
+  const deleteListing = useDeleteListing();
   const openPhotoPickerRef = useRef<() => void>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(-1);
+
+  const handleDelete = async () => {
+    if (!listingId) return;
+    try {
+      await deleteListing.mutateAsync(listingId);
+      notifications.show({
+        color: "green",
+        message: "Property deleted. Its history and photos were kept for recovery.",
+      });
+      navigate("/listings", { replace: true });
+    } catch (deleteError) {
+      notifications.show({
+        color: "red",
+        title: "Delete failed",
+        message:
+          deleteError instanceof ApiError
+            ? deleteError.code.replace(/_/g, " ")
+            : "The property could not be deleted. Please try again.",
+      });
+    }
+  };
 
   const handlePhotoDrop = async (files: File[]) => {
     try {
@@ -168,13 +195,23 @@ export default function ListingDetail() {
           </Group>
           <Text c="dimmed">{locality}</Text>
         </Stack>
-        <Button
-          variant="light"
-          leftSection={<IconPencil size={16} />}
-          onClick={() => setEditOpen(true)}
-        >
-          Edit property
-        </Button>
+        <Group gap="sm">
+          <Button
+            variant="light"
+            leftSection={<IconPencil size={16} />}
+            onClick={() => setEditOpen(true)}
+          >
+            Edit property
+          </Button>
+          <Button
+            variant="light"
+            color="red"
+            leftSection={<IconTrash size={16} />}
+            onClick={() => setDeleteOpen(true)}
+          >
+            Delete property
+          </Button>
+        </Group>
       </Group>
 
       <Grid align="stretch">
@@ -456,6 +493,38 @@ export default function ListingDetail() {
         onClose={() => setEditOpen(false)}
         listing={listing}
       />
+      <Modal
+        opened={deleteOpen}
+        onClose={() => {
+          if (!deleteListing.isPending) setDeleteOpen(false);
+        }}
+        title="Delete property?"
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            Delete {streetAddress}? It will disappear from the property list and URL matching,
+            but its history and photos will be kept so it can be recovered later.
+          </Text>
+          <Group justify="flex-end">
+            <Button
+              variant="default"
+              onClick={() => setDeleteOpen(false)}
+              disabled={deleteListing.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              color="red"
+              leftSection={<IconTrash size={16} />}
+              loading={deleteListing.isPending}
+              onClick={handleDelete}
+            >
+              Delete property
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </PageStack>
   );
 }

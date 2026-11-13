@@ -29,10 +29,13 @@ import type { Listing, ListingLookup, ListingStatus } from "../api/types";
 import { LISTING_STATUS_COLORS } from "../theme";
 import { formatDate, formatPriceCents, humanize } from "../format";
 import PageStack from "../motion/PageStack";
-import AddWithMatrixModal from "./AddWithMatrixModal";
-import AddWithZillowModal from "./AddWithZillowModal";
+import AddWithUrlModal from "./AddWithUrlModal";
 import ListingFormModal from "./ListingFormModal";
-import { useListingLookupAvailable, useListings } from "./queries";
+import ResolveMatrixDuplicateModal, {
+  type MatrixResolution,
+  type MatrixResolutionMode,
+} from "./ResolveMatrixDuplicateModal";
+import { useListings, type ListingUrlLookupResult } from "./queries";
 
 const PAGE_SIZE = 25;
 
@@ -53,11 +56,11 @@ export default function Listings() {
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<Listing | undefined>();
   const [formOpen, setFormOpen] = useState(false);
-  // "Add with Zillow": the link dialog, then the result the form opens on.
-  const [zillowOpen, setZillowOpen] = useState(false);
-  const [matrixOpen, setMatrixOpen] = useState(false);
+  const [urlOpen, setUrlOpen] = useState(false);
   const [lookup, setLookup] = useState<ListingLookup | undefined>();
-  const lookupAvailable = useListingLookupAvailable();
+  const [matrixConflict, setMatrixConflict] = useState<ListingUrlLookupResult | null>(null);
+  const [matrixMode, setMatrixMode] = useState<MatrixResolutionMode | undefined>();
+  const [replaceMatrixPhotos, setReplaceMatrixPhotos] = useState(false);
 
   // See the note in Contacts.tsx: gate on `data`, not `isPending`.
   const { data, isError, error } = useListings({
@@ -71,22 +74,46 @@ export default function Listings() {
     setEditing(undefined);
     // A plain "New listing" must not inherit the last lookup's draft.
     setLookup(undefined);
+    setMatrixMode(undefined);
+    setReplaceMatrixPhotos(false);
     setFormOpen(true);
   };
 
   // The lookup came back: close the link dialog and open the ordinary
   // new-listing form on its draft. Nothing has been saved yet.
   const openFromLookup = (result: ListingLookup) => {
-    setZillowOpen(false);
-    setMatrixOpen(false);
+    setUrlOpen(false);
     setEditing(undefined);
     setLookup(result);
+    setMatrixMode(undefined);
+    setReplaceMatrixPhotos(false);
+    setFormOpen(true);
+  };
+
+  const handleUrlLookup = (result: ListingUrlLookupResult) => {
+    setUrlOpen(false);
+    if (result.existingListing) {
+      setMatrixConflict(result);
+      return;
+    }
+    openFromLookup(result.lookup);
+  };
+
+  const resolveMatrixConflict = (resolution: MatrixResolution) => {
+    if (!matrixConflict) return;
+    setMatrixConflict(null);
+    setEditing(resolution.initialListing);
+    setLookup(matrixConflict.lookup);
+    setMatrixMode(resolution.mode);
+    setReplaceMatrixPhotos(resolution.replacePhotos);
     setFormOpen(true);
   };
 
   const openEdit = (listing: Listing) => {
     setEditing(listing);
     setLookup(undefined);
+    setMatrixMode(undefined);
+    setReplaceMatrixPhotos(false);
     setFormOpen(true);
   };
 
@@ -98,21 +125,10 @@ export default function Listings() {
           <Button
             variant="light"
             leftSection={<IconLink size={16} />}
-            onClick={() => setMatrixOpen(true)}
+            onClick={() => setUrlOpen(true)}
           >
-            Add with NTREIS
+            Add with URL
           </Button>
-          {/* Only offered when the server has a BigDistrict key — otherwise it
-              is a button that can do nothing but fail. */}
-          {lookupAvailable.data?.available && (
-            <Button
-              variant="light"
-              leftSection={<IconLink size={16} />}
-              onClick={() => setZillowOpen(true)}
-            >
-              Add with Zillow
-            </Button>
-          )}
           <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
             New listing
           </Button>
@@ -268,22 +284,32 @@ export default function Listings() {
         // Remounted per target so the form reloads its initial values — and a
         // lookup gets its own key, or a second lookup would open on the first
         // one's draft.
-        key={editing?.id ?? (lookup ? `lookup-${lookup.sourceUrl}` : "new")}
+        key={
+          matrixMode
+            ? `${matrixMode}-${editing?.id ?? "new"}-${lookup?.sourceUrl ?? ""}`
+            : editing?.id ?? (lookup ? `lookup-${lookup.sourceUrl}` : "new")
+        }
         opened={formOpen}
         onClose={() => setFormOpen(false)}
         listing={editing}
         lookup={lookup}
+        matrixMode={matrixMode}
+        replaceMatrixPhotos={replaceMatrixPhotos}
       />
-      <AddWithZillowModal
-        opened={zillowOpen}
-        onClose={() => setZillowOpen(false)}
-        onResult={openFromLookup}
+      <AddWithUrlModal
+        opened={urlOpen}
+        onClose={() => setUrlOpen(false)}
+        onResult={handleUrlLookup}
       />
-      <AddWithMatrixModal
-        opened={matrixOpen}
-        onClose={() => setMatrixOpen(false)}
-        onResult={openFromLookup}
-      />
+      {matrixConflict?.existingListing && (
+        <ResolveMatrixDuplicateModal
+          key={`${matrixConflict.existingListing.id}-${matrixConflict.lookup.sourceUrl}`}
+          opened
+          onClose={() => setMatrixConflict(null)}
+          result={matrixConflict}
+          onResolve={resolveMatrixConflict}
+        />
+      )}
     </PageStack>
   );
 }

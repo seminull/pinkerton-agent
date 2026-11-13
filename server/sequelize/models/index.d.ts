@@ -49,6 +49,8 @@ export interface ListingAttributes {
   /** Public portals and working records associated with this property. */
   externalLinks: { label: string; url: string }[];
   notes: string | null;
+  /** Soft-delete timestamp. Normal Listing queries exclude rows where it is set. */
+  deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

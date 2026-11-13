@@ -98,6 +98,9 @@ app.post("/:listingId/photos", async (c) => {
 app.get("/:listingId/photos/:photoId/content", async (c) => {
   const listingId = requireUuid(c.req.param("listingId"));
   const photoId = requireUuid(c.req.param("photoId"));
+  // A soft-deleted property keeps its files for recovery, but they must no
+  // longer be reachable through an old content URL.
+  await requireListing(listingId);
   const photo = await ListingPhoto.findOne({ where: { id: photoId, listingId } });
   if (!photo) throw apiError(404, "listing_photo_not_found");
 
@@ -122,6 +125,7 @@ app.get("/:listingId/photos/:photoId/content", async (c) => {
 app.delete("/:listingId/photos/:photoId", async (c) => {
   const listingId = requireUuid(c.req.param("listingId"));
   const photoId = requireUuid(c.req.param("photoId"));
+  await requireListing(listingId);
   const photo = await ListingPhoto.findOne({ where: { id: photoId, listingId } });
   if (!photo) throw apiError(404, "listing_photo_not_found");
 

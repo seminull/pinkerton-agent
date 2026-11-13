@@ -134,43 +134,54 @@ export const useDeleteListing = () => {
   });
 };
 
-// --- Add with Zillow ---------------------------------------------------------
+// --- Add with URL ------------------------------------------------------------
 
-// Whether the server has a BigDistrict key. Asked once and kept: it only
-// changes with a redeploy, and the answer decides whether the button exists.
-export const useListingLookupAvailable = () =>
+export const useListingUrlCapabilities = () =>
   useQuery({
-    queryKey: ["listings", "lookup-available"] as const,
+    queryKey: ["listings", "url-lookup-capabilities"] as const,
     queryFn: () => api.get<{ available: boolean }>("/listings/lookup"),
     staleTime: Infinity,
   });
 
-// Looks a link up and returns a DRAFT. Nothing is saved and no list changes,
-// so unlike the other mutations here there is nothing to invalidate.
-export const useLookupListing = () =>
+// The server selects the Matrix or Zillow parser from the URL and returns a
+// draft. Nothing is saved, so there is no list query to invalidate.
+export const useLookupListingUrl = () =>
   useMutation({
     mutationFn: (url: string) =>
-      api.post<{ lookup: ListingLookup }>("/listings/lookup", { url }),
+      api.post<ListingUrlLookupResult>("/listings/lookup", { url }),
   });
 
-export const useLookupMatrixListing = () =>
-  useMutation({
-    mutationFn: (url: string) =>
-      api.post<{ lookup: ListingLookup }>("/listings/matrix/lookup", { url }),
-  });
+export interface ListingUrlLookupResult {
+  lookup: ListingLookup;
+  existingListing: Listing | null;
+  existingPhotoCount: number;
+  matchReason: "mls" | "address" | null;
+}
 
 export interface MatrixPhotoImportResult {
   imported: number;
   alreadyPresent: number;
   failed: number;
   omitted: number;
+  replaced: boolean;
 }
 
 export const useImportMatrixPhotos = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ listingId, url }: { listingId: string; url: string }) =>
-      api.post<MatrixPhotoImportResult>(`/listings/${listingId}/matrix-photos`, { url }),
+    mutationFn: ({
+      listingId,
+      url,
+      replace = false,
+    }: {
+      listingId: string;
+      url: string;
+      replace?: boolean;
+    }) =>
+      api.post<MatrixPhotoImportResult>(`/listings/${listingId}/matrix-photos`, {
+        url,
+        replace,
+      }),
     onSuccess: (_result, variables) =>
       queryClient.invalidateQueries({ queryKey: listingKeys.photos(variables.listingId) }),
   });
