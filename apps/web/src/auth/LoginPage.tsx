@@ -9,11 +9,11 @@ import {
   Stack,
   Text,
   TextInput,
-  Title,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { IconAlertCircle, IconBrandGoogle } from "@tabler/icons-react";
 import { ApiError } from "../api/client";
+import { BrandLogo } from "../brand/Brand";
 import { useAuth } from "./authContext";
 
 // The codes the Google callback can send back as ?auth_error= (see
@@ -84,12 +84,15 @@ export default function LoginPage() {
     <Center mih="100vh" p="md">
       <Paper withBorder shadow="sm" p="xl" w="100%" maw={400}>
         <Stack>
-          <div>
-            <Title order={2}>Pinkerton Agent</Title>
-            <Text c="dimmed" size="sm">
+          {/* The lockup carries the name, so there is no separate text title —
+              but the page still needs a heading for screen readers and for
+              anyone landing here by keyboard. */}
+          <Stack align="center" gap="xs">
+            <BrandLogo h={190} />
+            <Text component="h1" c="dimmed" size="sm" m={0} fw={400}>
               Sign in to your CRM
             </Text>
-          </div>
+          </Stack>
 
           {error && (
             <Alert color="red" icon={<IconAlertCircle size={18} />}>

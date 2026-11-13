@@ -19,6 +19,7 @@ import {
 } from "@tabler/icons-react";
 import { Link, Outlet, useLocation } from "react-router";
 import { useAuth } from "../auth/authContext";
+import { BrandMark } from "../brand/Brand";
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: IconLayoutDashboard },
@@ -59,6 +60,7 @@ export default function RootLayout() {
       <AppShell.Header>
         <Group h="100%" px="md" gap="sm">
           <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+          <BrandMark h={30} />
           <Title order={4}>Pinkerton Agent</Title>
           <Text size="xs" c="dimmed">
             CRM
