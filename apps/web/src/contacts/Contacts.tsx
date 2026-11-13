@@ -17,13 +17,19 @@ import {
   Title,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { IconPencil, IconPlus, IconSearch } from "@tabler/icons-react";
+import {
+  IconFileImport,
+  IconPencil,
+  IconPlus,
+  IconSearch,
+} from "@tabler/icons-react";
 import { Link } from "react-router";
 import type { Contact, ContactStage, ContactType } from "../api/types";
 import { CONTACT_STAGE_COLORS } from "../theme";
 import { humanize } from "../format";
 import PageStack from "../motion/PageStack";
 import ContactFormModal from "./ContactFormModal";
+import ImportContactsModal from "./ImportContactsModal";
 import { useContacts } from "./queries";
 
 const PAGE_SIZE = 25;
@@ -52,6 +58,7 @@ export default function Contacts() {
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<Contact | undefined>();
   const [formOpen, setFormOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   // Gate the table on `data` rather than `isPending`: TanStack's result is a
   // discriminated union, and destructuring the flags into separate consts
@@ -78,9 +85,18 @@ export default function Contacts() {
     <PageStack>
       <Group justify="space-between">
         <Title order={2}>Contacts</Title>
-        <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
-          New contact
-        </Button>
+        <Group gap="sm">
+          <Button
+            variant="light"
+            leftSection={<IconFileImport size={16} />}
+            onClick={() => setImportOpen(true)}
+          >
+            Import contacts
+          </Button>
+          <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
+            New contact
+          </Button>
+        </Group>
       </Group>
 
       <Card withBorder padding="sm">
@@ -221,6 +237,11 @@ export default function Contacts() {
         opened={formOpen}
         onClose={() => setFormOpen(false)}
         contact={editing}
+      />
+      <ImportContactsModal
+        opened={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => setPage(1)}
       />
     </PageStack>
   );

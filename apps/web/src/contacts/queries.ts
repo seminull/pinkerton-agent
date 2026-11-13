@@ -40,6 +40,16 @@ export type ContactInput = Partial<
   >
 >;
 
+export type ImportedContactInput = Pick<
+  Contact,
+  "firstName" | "lastName" | "email" | "phone"
+>;
+
+export interface ImportContactsResult {
+  imported: number;
+  duplicates: number;
+}
+
 export const useCreateContact = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -57,6 +67,15 @@ export const useUpdateContact = () => {
   return useMutation({
     mutationFn: ({ id, ...input }: ContactInput & { id: string }) =>
       api.patch<{ contact: Contact }>(`/contacts/${id}`, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: contactKeys.all }),
+  });
+};
+
+export const useImportContacts = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (contacts: ImportedContactInput[]) =>
+      api.post<ImportContactsResult>("/contacts/import", { contacts }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: contactKeys.all }),
   });
 };
