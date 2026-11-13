@@ -14,7 +14,9 @@ import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
   IconAddressBook,
+  IconBuildingCommunity,
   IconClock,
+  IconExternalLink,
   IconHome,
   IconLayoutDashboard,
   IconLogout,
@@ -117,6 +119,22 @@ export default function RootLayout() {
             onClick={() => opened && toggle()}
           />
         ))}
+
+        {/* Off-site, so a plain <a>, not a router Link, and never "active".
+            A new tab, so a lookup in Big District doesn't navigate away from a
+            half-filled form here; the trailing icon says so before the click.
+            noopener stops that tab reaching back through window.opener, and
+            noreferrer keeps our URLs (which carry record ids) out of its logs. */}
+        <NavLink
+          component="a"
+          href="https://bigdistrict.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          label="Big District"
+          leftSection={<IconBuildingCommunity size={18} stroke={1.5} />}
+          rightSection={<IconExternalLink size={14} stroke={1.5} />}
+          onClick={() => opened && toggle()}
+        />
 
         {/* Shown only to admins. Hiding it is tidiness, not protection — the
             page and the API each check the role themselves. */}
