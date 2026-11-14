@@ -20,6 +20,14 @@ const baseUrl = (): string =>
   (process.env.BIGDISTRICT_API_URL?.trim() || "https://bigdistrict.app").replace(/\/$/, "");
 const apiKey = (): string | null => process.env.BIGDISTRICT_API_KEY?.trim() || null;
 
+export interface BigDistrictPropertyAddress {
+  addressLine1: string;
+  addressLine2?: string | null;
+  city: string;
+  state: string;
+  postalCode: string;
+}
+
 /** Whether the unified URL lookup can handle Zillow links. */
 export const bigDistrictConfigured = (): boolean => apiKey() !== null;
 
@@ -181,4 +189,79 @@ export const lookupListing = async (url: string, requestedBy: string): Promise<L
     candidates: typeof answer.candidates === "number" ? answer.candidates : 0,
     photoCount: 0,
   };
+};
+
+const fullAddress = (address: BigDistrictPropertyAddress): string =>
+  [
+    address.addressLine1.trim(),
+    address.addressLine2?.trim(),
+    address.city.trim(),
+    `${address.state.trim()} ${address.postalCode.trim()}`.trim(),
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+/** A useful BigDistrict destination even when an exact parcel cannot be resolved. */
+export const bigDistrictSearchUrl = (address: BigDistrictPropertyAddress): string => {
+  const url = new URL("/properties", `${baseUrl()}/`);
+  url.searchParams.set("q", fullAddress(address));
+  return url.toString();
+};
+
+/** Whether a stored external link belongs to BigDistrict. */
+export const isBigDistrictUrl = (raw: string): boolean => {
+  try {
+    const url = new URL(raw);
+    const configuredHost = new URL(`${baseUrl()}/`).hostname.toLowerCase();
+    const hostname = url.hostname.toLowerCase();
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      ["bigdistrict.app", configuredHost].some(
+        (host) => hostname === host || hostname.endsWith(`.${host}`)
+      )
+    );
+  } catch {
+    return false;
+  }
+};
+
+// BigDistrict's listing integration deliberately parses the address from a
+// Zillow-style URL without fetching Zillow. This gives it the same input for a
+// manually-created property as it gets from the Add with URL workflow.
+const addressLookupUrl = (address: BigDistrictPropertyAddress): string => {
+  const slug = [
+    address.addressLine1,
+    address.addressLine2,
+    address.city,
+    address.state,
+    address.postalCode.slice(0, 5),
+  ]
+    .filter(Boolean)
+    .join("-")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-|-$/g, "");
+  return `https://www.zillow.com/homes/${slug}_rb/`;
+};
+
+/**
+ * Resolve a property to its exact BigDistrict parcel page when possible. A
+ * search link is always returned, so a BigDistrict outage or an uncovered
+ * county never prevents saving or opening a property in this app.
+ */
+export const resolveBigDistrictPropertyUrl = async (
+  address: BigDistrictPropertyAddress,
+  requestedBy: string
+): Promise<string> => {
+  const fallback = bigDistrictSearchUrl(address);
+  if (!bigDistrictConfigured()) return fallback;
+
+  try {
+    const lookup = await lookupListing(addressLookupUrl(address), requestedBy);
+    return lookup.bigDistrictUrl || fallback;
+  } catch (error) {
+    console.error("BigDistrict property-link resolution failed:", error);
+    return fallback;
+  }
 };

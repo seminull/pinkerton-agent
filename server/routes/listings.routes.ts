@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { Op, type WhereOptions } from "sequelize";
 import type { AuthEnv } from "../auth";
-import { bigDistrictConfigured, lookupListing } from "../bigdistrict";
+import {
+  bigDistrictConfigured,
+  isBigDistrictUrl,
+  lookupListing,
+  resolveBigDistrictPropertyUrl,
+} from "../bigdistrict";
 import {
   detectListingImage,
   MAX_LISTING_PHOTO_BYTES,
@@ -16,6 +21,7 @@ import {
   readMatrixListing,
 } from "../matrix";
 import { Contact, Listing, ListingPhoto } from "../sequelize/models";
+import type { ListingInstance } from "../sequelize/models";
 import {
   apiError,
   parsePage,
@@ -50,8 +56,10 @@ const WRITABLE = [
 ] as const;
 
 const REQUIRED_ON_CREATE = ["addressLine1", "city", "state", "postalCode"] as const;
+const ADDRESS_FIELDS = ["addressLine1", "addressLine2", "city", "state", "postalCode"] as const;
 const MAX_MATRIX_LINK_LENGTH = 2000;
 const MATRIX_PHOTO_CONCURRENCY = 4;
+const BIGDISTRICT_LINK_LABEL = "BigDistrict";
 
 const SORT_FIELDS: Record<string, string> = {
   createdAt: "createdAt",
@@ -117,6 +125,56 @@ const normalizeListingValues = (
     values.externalLinks = normalizeExternalLinks(values.externalLinks);
   }
 };
+
+const canonicalizeBigDistrictLinks = (links: ExternalLink[]): ExternalLink[] => {
+  let kept = false;
+  return links.flatMap((link) => {
+    if (!isBigDistrictUrl(link.url)) return [link];
+    if (kept) return [];
+    kept = true;
+    return [{ label: BIGDISTRICT_LINK_LABEL, url: link.url }];
+  });
+};
+
+// Existing rows are filled on detail reads, while creates and edits call the
+// same helper immediately. Re-fetching before the write avoids adding a second
+// link when two requests open the same legacy property at once.
+const ensureBigDistrictLink = async (
+  listing: ListingInstance,
+  requestedBy: string
+): Promise<void> => {
+  const currentLinks = canonicalizeBigDistrictLinks(listing.externalLinks);
+  if (currentLinks.some((link) => isBigDistrictUrl(link.url))) {
+    if (JSON.stringify(currentLinks) !== JSON.stringify(listing.externalLinks)) {
+      await listing.update({ externalLinks: currentLinks });
+    }
+    return;
+  }
+
+  const resolvedUrl = await resolveBigDistrictPropertyUrl(
+    {
+      addressLine1: listing.addressLine1,
+      addressLine2: listing.addressLine2,
+      city: listing.city,
+      state: listing.state,
+      postalCode: listing.postalCode,
+    },
+    requestedBy
+  );
+  const fresh = await Listing.findByPk(listing.id);
+  if (!fresh) return;
+
+  const freshLinks = canonicalizeBigDistrictLinks(fresh.externalLinks);
+  const nextLinks = freshLinks.some((link) => isBigDistrictUrl(link.url))
+    ? freshLinks
+    : [...freshLinks, { label: BIGDISTRICT_LINK_LABEL, url: resolvedUrl }];
+  if (JSON.stringify(nextLinks) !== JSON.stringify(fresh.externalLinks)) {
+    await fresh.update({ externalLinks: nextLinks });
+  }
+};
+
+const findListingWithSeller = (id: string) =>
+  Listing.findByPk(id, { include: [{ model: Contact, as: "seller" }] });
 
 const matrixLinkFromBody = (body: unknown): URL => {
   const value = (body as { url?: unknown } | null)?.url;
@@ -268,11 +326,10 @@ app.get("/", async (c) => {
 
 app.get("/:id", async (c) => {
   const id = requireUuid(c.req.param("id"));
-  const listing = await Listing.findByPk(id, {
-    include: [{ model: Contact, as: "seller" }],
-  });
+  const listing = await findListingWithSeller(id);
   if (!listing) throw apiError(404, "listing_not_found");
-  return c.json({ listing });
+  await ensureBigDistrictLink(listing, c.get("auth").user.id);
+  return c.json({ listing: await findListingWithSeller(id) });
 });
 
 app.post("/", async (c) => {
@@ -280,7 +337,8 @@ app.post("/", async (c) => {
   requireFields(values, REQUIRED_ON_CREATE);
   normalizeListingValues(values);
   const listing = await Listing.create(values as never);
-  return c.json({ listing }, 201);
+  await ensureBigDistrictLink(listing, c.get("auth").user.id);
+  return c.json({ listing: await findListingWithSeller(listing.id) }, 201);
 });
 
 app.patch("/:id", async (c) => {
@@ -292,8 +350,19 @@ app.patch("/:id", async (c) => {
   const listing = await Listing.findByPk(id);
   if (!listing) throw apiError(404, "listing_not_found");
 
+  const addressChanged = ADDRESS_FIELDS.some(
+    (field) => values[field] !== undefined && values[field] !== listing[field]
+  );
+  if (addressChanged) {
+    const links = (values.externalLinks ?? listing.externalLinks) as ExternalLink[];
+    // The old parcel/search link describes the old address. Remove it before
+    // the update so ensureBigDistrictLink resolves the new property.
+    values.externalLinks = links.filter((link) => !isBigDistrictUrl(link.url));
+  }
+
   await listing.update(values as never);
-  return c.json({ listing });
+  await ensureBigDistrictLink(listing, c.get("auth").user.id);
+  return c.json({ listing: await findListingWithSeller(id) });
 });
 
 // Re-fetch the reviewed Matrix listing and copy its expiring media into this

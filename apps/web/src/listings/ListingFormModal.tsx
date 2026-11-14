@@ -136,7 +136,7 @@ const lookupLinks = (lookup: ListingLookup | undefined): ExternalLink[] => {
   return [
     { label: "Zillow", url: lookup.sourceUrl },
     ...(lookup.bigDistrictUrl
-      ? [{ label: "County record", url: lookup.bigDistrictUrl }]
+      ? [{ label: "BigDistrict", url: lookup.bigDistrictUrl }]
       : []),
   ];
 };
