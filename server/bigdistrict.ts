@@ -52,6 +52,7 @@ interface BigDistrictAnswer {
     quality?: string;
     county?: string | null;
     url?: string | null;
+    zillowUrl?: string | null;
     address?: {
       line1?: string | null;
       city?: string | null;
@@ -151,6 +152,7 @@ export const lookupListing = async (url: string, requestedBy: string): Promise<L
       },
       county: text(match.county) || null,
       bigDistrictUrl,
+      zillowUrl: text(match.zillowUrl) || zillowUrl,
       sourceUrl: zillowUrl,
       candidates: 1,
       photoCount: 0,
@@ -185,6 +187,7 @@ export const lookupListing = async (url: string, requestedBy: string): Promise<L
     },
     county: null,
     bigDistrictUrl: null,
+    zillowUrl,
     sourceUrl: zillowUrl,
     candidates: typeof answer.candidates === "number" ? answer.candidates : 0,
     photoCount: 0,
@@ -225,10 +228,24 @@ export const isBigDistrictUrl = (raw: string): boolean => {
   }
 };
 
+/** Whether a stored external link belongs to Zillow. */
+export const isZillowUrl = (raw: string): boolean => {
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    const hostname = url.hostname.toLowerCase();
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      (hostname === "zillow.com" || hostname.endsWith(".zillow.com"))
+    );
+  } catch {
+    return false;
+  }
+};
+
 // BigDistrict's listing integration deliberately parses the address from a
 // Zillow-style URL without fetching Zillow. This gives it the same input for a
 // manually-created property as it gets from the Add with URL workflow.
-const addressLookupUrl = (address: BigDistrictPropertyAddress): string => {
+export const zillowAddressUrl = (address: BigDistrictPropertyAddress): string => {
   const slug = [
     address.addressLine1,
     address.addressLine2,
@@ -246,20 +263,26 @@ const addressLookupUrl = (address: BigDistrictPropertyAddress): string => {
 };
 
 /**
- * Resolve a property to its exact BigDistrict parcel page when possible. A
- * search link is always returned, so a BigDistrict outage or an uncovered
- * county never prevents saving or opening a property in this app.
+ * Resolve a property's BigDistrict and Zillow destinations together. Safe
+ * address-search links are always returned, so an integration outage or an
+ * uncovered county never prevents saving or opening a property in this app.
  */
-export const resolveBigDistrictPropertyUrl = async (
+export const resolvePropertyLinks = async (
   address: BigDistrictPropertyAddress,
   requestedBy: string
-): Promise<string> => {
-  const fallback = bigDistrictSearchUrl(address);
+): Promise<{ bigDistrictUrl: string; zillowUrl: string }> => {
+  const fallback = {
+    bigDistrictUrl: bigDistrictSearchUrl(address),
+    zillowUrl: zillowAddressUrl(address),
+  };
   if (!bigDistrictConfigured()) return fallback;
 
   try {
-    const lookup = await lookupListing(addressLookupUrl(address), requestedBy);
-    return lookup.bigDistrictUrl || fallback;
+    const lookup = await lookupListing(fallback.zillowUrl, requestedBy);
+    return {
+      bigDistrictUrl: lookup.bigDistrictUrl || fallback.bigDistrictUrl,
+      zillowUrl: lookup.zillowUrl || fallback.zillowUrl,
+    };
   } catch (error) {
     console.error("BigDistrict property-link resolution failed:", error);
     return fallback;

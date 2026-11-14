@@ -120,6 +120,8 @@ export interface ListingLookup {
   };
   county: string | null;
   bigDistrictUrl: string | null;
+  /** Zillow destination supplied by BigDistrict, exact when its cache has one. */
+  zillowUrl: string | null;
   /** The submitted link with its tracking query string removed. */
   sourceUrl: string;
   candidates: number;

@@ -355,6 +355,7 @@ export const readMatrixListing = async (link: URL): Promise<MatrixListing> => {
       },
       county: fields.get("County") ?? null,
       bigDistrictUrl: null,
+      zillowUrl: null,
       // Origin and path only, like the Zillow path: the query string of a
       // share link is tracking, not address.
       sourceUrl: `${link.origin}${link.pathname}`,

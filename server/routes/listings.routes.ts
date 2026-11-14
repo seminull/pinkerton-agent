@@ -5,8 +5,9 @@ import type { AuthEnv } from "../auth";
 import {
   bigDistrictConfigured,
   isBigDistrictUrl,
+  isZillowUrl,
   lookupListing,
-  resolveBigDistrictPropertyUrl,
+  resolvePropertyLinks,
 } from "../bigdistrict";
 import {
   detectListingImage,
@@ -60,6 +61,7 @@ const ADDRESS_FIELDS = ["addressLine1", "addressLine2", "city", "state", "postal
 const MAX_MATRIX_LINK_LENGTH = 2000;
 const MATRIX_PHOTO_CONCURRENCY = 4;
 const BIGDISTRICT_LINK_LABEL = "BigDistrict";
+const ZILLOW_LINK_LABEL = "Zillow";
 
 const SORT_FIELDS: Record<string, string> = {
   createdAt: "createdAt",
@@ -126,32 +128,42 @@ const normalizeListingValues = (
   }
 };
 
-const canonicalizeBigDistrictLinks = (links: ExternalLink[]): ExternalLink[] => {
-  let kept = false;
+const canonicalizePropertyLinks = (links: ExternalLink[]): ExternalLink[] => {
+  let keptBigDistrict = false;
+  let keptZillow = false;
   return links.flatMap((link) => {
-    if (!isBigDistrictUrl(link.url)) return [link];
-    if (kept) return [];
-    kept = true;
-    return [{ label: BIGDISTRICT_LINK_LABEL, url: link.url }];
+    if (isBigDistrictUrl(link.url)) {
+      if (keptBigDistrict) return [];
+      keptBigDistrict = true;
+      return [{ label: BIGDISTRICT_LINK_LABEL, url: link.url }];
+    }
+    if (isZillowUrl(link.url)) {
+      if (keptZillow) return [];
+      keptZillow = true;
+      return [{ label: ZILLOW_LINK_LABEL, url: link.url }];
+    }
+    return [link];
   });
 };
 
 // Existing rows are filled on detail reads, while creates and edits call the
 // same helper immediately. Re-fetching before the write avoids adding a second
 // link when two requests open the same legacy property at once.
-const ensureBigDistrictLink = async (
+const ensurePropertyLinks = async (
   listing: ListingInstance,
   requestedBy: string
 ): Promise<void> => {
-  const currentLinks = canonicalizeBigDistrictLinks(listing.externalLinks);
-  if (currentLinks.some((link) => isBigDistrictUrl(link.url))) {
+  const currentLinks = canonicalizePropertyLinks(listing.externalLinks);
+  const hasBigDistrict = currentLinks.some((link) => isBigDistrictUrl(link.url));
+  const hasZillow = currentLinks.some((link) => isZillowUrl(link.url));
+  if (hasBigDistrict && hasZillow) {
     if (JSON.stringify(currentLinks) !== JSON.stringify(listing.externalLinks)) {
       await listing.update({ externalLinks: currentLinks });
     }
     return;
   }
 
-  const resolvedUrl = await resolveBigDistrictPropertyUrl(
+  const resolved = await resolvePropertyLinks(
     {
       addressLine1: listing.addressLine1,
       addressLine2: listing.addressLine2,
@@ -164,10 +176,14 @@ const ensureBigDistrictLink = async (
   const fresh = await Listing.findByPk(listing.id);
   if (!fresh) return;
 
-  const freshLinks = canonicalizeBigDistrictLinks(fresh.externalLinks);
-  const nextLinks = freshLinks.some((link) => isBigDistrictUrl(link.url))
-    ? freshLinks
-    : [...freshLinks, { label: BIGDISTRICT_LINK_LABEL, url: resolvedUrl }];
+  const freshLinks = canonicalizePropertyLinks(fresh.externalLinks);
+  const nextLinks = [...freshLinks];
+  if (!freshLinks.some((link) => isBigDistrictUrl(link.url))) {
+    nextLinks.push({ label: BIGDISTRICT_LINK_LABEL, url: resolved.bigDistrictUrl });
+  }
+  if (!freshLinks.some((link) => isZillowUrl(link.url))) {
+    nextLinks.push({ label: ZILLOW_LINK_LABEL, url: resolved.zillowUrl });
+  }
   if (JSON.stringify(nextLinks) !== JSON.stringify(fresh.externalLinks)) {
     await fresh.update({ externalLinks: nextLinks });
   }
@@ -192,19 +208,6 @@ const listingUrlFromBody = (body: unknown): string => {
     throw apiError(422, "unsupported_listing_url");
   }
   return value.trim();
-};
-
-const isZillowUrl = (raw: string): boolean => {
-  try {
-    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
-    const hostname = url.hostname.toLowerCase();
-    return (
-      (url.protocol === "http:" || url.protocol === "https:") &&
-      (hostname === "zillow.com" || hostname.endsWith(".zillow.com"))
-    );
-  } catch {
-    return false;
-  }
 };
 
 const readMatrixLookup = async (link: URL) => {
@@ -328,7 +331,7 @@ app.get("/:id", async (c) => {
   const id = requireUuid(c.req.param("id"));
   const listing = await findListingWithSeller(id);
   if (!listing) throw apiError(404, "listing_not_found");
-  await ensureBigDistrictLink(listing, c.get("auth").user.id);
+  await ensurePropertyLinks(listing, c.get("auth").user.id);
   return c.json({ listing: await findListingWithSeller(id) });
 });
 
@@ -337,7 +340,7 @@ app.post("/", async (c) => {
   requireFields(values, REQUIRED_ON_CREATE);
   normalizeListingValues(values);
   const listing = await Listing.create(values as never);
-  await ensureBigDistrictLink(listing, c.get("auth").user.id);
+  await ensurePropertyLinks(listing, c.get("auth").user.id);
   return c.json({ listing: await findListingWithSeller(listing.id) }, 201);
 });
 
@@ -356,12 +359,14 @@ app.patch("/:id", async (c) => {
   if (addressChanged) {
     const links = (values.externalLinks ?? listing.externalLinks) as ExternalLink[];
     // The old parcel/search link describes the old address. Remove it before
-    // the update so ensureBigDistrictLink resolves the new property.
-    values.externalLinks = links.filter((link) => !isBigDistrictUrl(link.url));
+    // the update so ensurePropertyLinks resolves the new property.
+    values.externalLinks = links.filter(
+      (link) => !isBigDistrictUrl(link.url) && !isZillowUrl(link.url)
+    );
   }
 
   await listing.update(values as never);
-  await ensureBigDistrictLink(listing, c.get("auth").user.id);
+  await ensurePropertyLinks(listing, c.get("auth").user.id);
   return c.json({ listing: await findListingWithSeller(id) });
 });
 

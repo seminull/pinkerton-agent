@@ -39,6 +39,7 @@ import PageStack from "../motion/PageStack";
 import { LISTING_STATUS_COLORS } from "../theme";
 import ListingFormModal from "./ListingFormModal";
 import {
+  listingPhotoThumbnailUrl,
   listingPhotoUrl,
   useDeleteListing,
   useListing,
@@ -332,7 +333,10 @@ export default function ListingDetail() {
                     >
                       <SimpleGrid cols={{ base: 2, sm: 3 }} spacing={4} p={4}>
                         {photosQuery.data.photos.map((photo, index) => {
-                          const photoUrl = listingPhotoUrl(listing.id, photo.id);
+                          // The thumbnail, not the original: the full-size
+                          // file is fetched only when the photo is opened in
+                          // the lightbox below.
+                          const photoUrl = listingPhotoThumbnailUrl(listing.id, photo.id);
                           return (
                             <UnstyledButton
                               key={photo.id}
@@ -346,7 +350,17 @@ export default function ListingDetail() {
                               }}
                             >
                               <AspectRatio ratio={4 / 3}>
-                                <Image src={photoUrl} alt={photo.originalName} fit="cover" />
+                                {/* Lazy: the grid scrolls inside a fixed-height
+                                    area, so most of a 50-photo set is out of
+                                    view and shouldn't compete with the first
+                                    rows for bandwidth. */}
+                                <Image
+                                  src={photoUrl}
+                                  alt={photo.originalName}
+                                  fit="cover"
+                                  loading="lazy"
+                                  decoding="async"
+                                />
                               </AspectRatio>
                             </UnstyledButton>
                           );

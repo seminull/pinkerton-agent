@@ -8,6 +8,7 @@ import {
   MAX_LISTING_PHOTO_BYTES,
   MAX_LISTING_PHOTOS,
   readListingPhoto,
+  readListingThumbnail,
   removeListingPhoto,
   writeListingPhoto,
 } from "../listing-media";
@@ -95,31 +96,67 @@ app.post("/:listingId/photos", async (c) => {
   }
 });
 
-app.get("/:listingId/photos/:photoId/content", async (c) => {
-  const listingId = requireUuid(c.req.param("listingId"));
-  const photoId = requireUuid(c.req.param("photoId"));
-  // A soft-deleted property keeps its files for recovery, but they must no
-  // longer be reachable through an old content URL.
+// A soft-deleted property keeps its files for recovery, but they must no
+// longer be reachable through an old content or thumbnail URL.
+const findPhoto = async (listingId: string, photoId: string): Promise<ListingPhotoInstance> => {
   await requireListing(listingId);
   const photo = await ListingPhoto.findOne({ where: { id: photoId, listingId } });
   if (!photo) throw apiError(404, "listing_photo_not_found");
+  return photo;
+};
 
-  const bytes = await readListingPhoto(listingId, photo.storageKey).catch(
+const imageResponse = (bytes: Buffer, contentType: string): Response =>
+  new Response(new Uint8Array(bytes), {
+    headers: {
+      "Content-Type": contentType,
+      "Content-Length": String(bytes.length),
+      // A photo id's bytes can never change: there is no edit endpoint, and the
+      // file is written once under a unique key (`wx`); its thumbnail is
+      // derived from those same bytes. So the browser may keep either for a
+      // year without revalidating. `private` keeps shared caches (Cloudflare)
+      // from holding a photo that only a signed-in user may see.
+      "Cache-Control": "private, max-age=31536000, immutable",
+      "Content-Disposition": "inline",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+
+const originalResponse = async (photo: ListingPhotoInstance): Promise<Response> => {
+  const bytes = await readListingPhoto(photo.listingId, photo.storageKey).catch(
     (error: NodeJS.ErrnoException) => {
       if (error.code === "ENOENT") throw apiError(404, "listing_photo_content_not_found");
       console.error(`Could not read listing photo ${photo.id}:`, error);
       throw apiError(503, "photo_storage_unavailable");
     }
   );
-  return new Response(new Uint8Array(bytes), {
-    headers: {
-      "Content-Type": photo.contentType,
-      "Content-Length": String(bytes.length),
-      "Cache-Control": "private, max-age=86400",
-      "Content-Disposition": "inline",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+  return imageResponse(bytes, photo.contentType);
+};
+
+// Full size: the full-screen viewer only.
+app.get("/:listingId/photos/:photoId/content", async (c) => {
+  const photo = await findPhoto(
+    requireUuid(c.req.param("listingId")),
+    requireUuid(c.req.param("photoId"))
+  );
+  return originalResponse(photo);
+});
+
+// A small WebP for the property's photo grid (see listing-media.ts).
+app.get("/:listingId/photos/:photoId/thumbnail", async (c) => {
+  const photo = await findPhoto(
+    requireUuid(c.req.param("listingId")),
+    requireUuid(c.req.param("photoId"))
+  );
+  const thumbnail = await readListingThumbnail(photo.listingId, photo.storageKey).catch(
+    (error: unknown) => {
+      console.error(`Could not make a thumbnail for listing photo ${photo.id}:`, error);
+      return null;
+    }
+  );
+  // Every stored photo passed a magic-byte check, so a failure here is an
+  // image the browser may still render (or a missing original, which the
+  // fallback reports as a 404). A slow grid cell beats an empty one.
+  return thumbnail ? imageResponse(thumbnail, "image/webp") : originalResponse(photo);
 });
 
 app.delete("/:listingId/photos/:photoId", async (c) => {

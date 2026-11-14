@@ -50,6 +50,11 @@ export const useListingPhotos = (id: string | undefined) =>
 export const listingPhotoUrl = (listingId: string, photoId: string): string =>
   `/api/listings/${listingId}/photos/${photoId}/content`;
 
+// A ~640px WebP of the same photo. Use it anywhere a photo is shown smaller
+// than full screen; the original can be 10 MB.
+export const listingPhotoThumbnailUrl = (listingId: string, photoId: string): string =>
+  `/api/listings/${listingId}/photos/${photoId}/thumbnail`;
+
 export const useUploadListingPhotos = (listingId: string) => {
   const queryClient = useQueryClient();
   return useMutation({

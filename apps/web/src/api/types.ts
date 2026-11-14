@@ -285,6 +285,7 @@ export interface ListingLookup {
   };
   county: string | null;
   bigDistrictUrl: string | null;
+  zillowUrl: string | null;
   sourceUrl: string;
   candidates: number;
   photoCount: number;
