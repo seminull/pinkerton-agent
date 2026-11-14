@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { Op, type WhereOptions } from "sequelize";
+import { normalizePhoneNumber } from "../phone";
 import { Contact, Listing, sequelize } from "../sequelize/models";
 import {
   apiError,
@@ -123,11 +124,16 @@ const parseContactImport = (body: unknown): ContactImport => {
       throw importFieldError(index, "contact", "must_be_an_object");
     }
     const contactValues = contact as Record<string, unknown>;
+    const phoneInput = optionalImportField(contactValues, "phone", index);
+    const phone = normalizePhoneNumber(phoneInput);
+    if (phoneInput && !phone) {
+      throw importFieldError(index, "phone", "invalid_phone_number");
+    }
     return {
       firstName: requiredImportField(contactValues, "firstName", index),
       lastName: requiredImportField(contactValues, "lastName", index),
       email: optionalImportField(contactValues, "email", index),
-      phone: optionalImportField(contactValues, "phone", index),
+      phone,
       notes: optionalImportNotes(contactValues, index),
     };
   });
@@ -137,13 +143,20 @@ const parseContactImport = (body: unknown): ContactImport => {
 const normalizeEmail = (email: string | null): string | null =>
   email ? email.trim().toLowerCase() : null;
 
-const normalizePhone = (phone: string | null): string | null => {
-  if (!phone) return null;
-  const digits = phone.replace(/\D/g, "");
-  if (!digits) return null;
-  // Treat a North American country code as formatting so `(312) ...` and
-  // `+1 312 ...` do not create two CRM records for the same person.
-  return digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+const normalizeContactValues = (
+  values: Partial<Record<(typeof WRITABLE)[number], unknown>>
+): void => {
+  if (values.phone === undefined) return;
+  if (values.phone === null || values.phone === "") {
+    values.phone = null;
+    return;
+  }
+  if (typeof values.phone !== "string") {
+    throw apiError(422, "invalid_phone_number", { phone: "must_be_a_string" });
+  }
+  const phone = normalizePhoneNumber(values.phone);
+  if (!phone) throw apiError(422, "invalid_phone_number", { phone: "invalid" });
+  values.phone = phone;
 };
 
 const normalizeName = (firstName: string, lastName: string): string =>
@@ -160,6 +173,9 @@ const SORT_FIELDS: Record<string, string> = {
   lastName: "lastName",
   stage: "stage",
 };
+
+const csvCell = (value: unknown): string =>
+  `"${String(value ?? "").replaceAll('"', '""')}"`;
 
 // GET /api/contacts?q=&stage=&type=&sort=&dir=&limit=&offset=
 app.get("/", async (c) => {
@@ -178,12 +194,13 @@ app.get("/", async (c) => {
   // revisit with pg_trgm when the book of business gets large.
   if (query.q) {
     const term = `%${query.q}%`;
+    const phoneDigits = query.q.replace(/\D/g, "");
     conditions.push({
       [Op.or]: [
         { firstName: { [Op.iLike]: term } },
         { lastName: { [Op.iLike]: term } },
         { email: { [Op.iLike]: term } },
-        { phone: { [Op.iLike]: term } },
+        ...(phoneDigits ? [{ phone: { [Op.iLike]: `%${phoneDigits}%` } }] : []),
       ],
     });
   }
@@ -201,6 +218,36 @@ app.get("/", async (c) => {
   });
 
   return c.json({ results: rows, total: count });
+});
+
+// GET /api/contacts/export.csv — a complete portable copy. Phone values are
+// canonical E.164, matching API/storage rather than whichever punctuation was
+// used when the contact was entered or imported.
+app.get("/export.csv", async (c) => {
+  const contacts = await Contact.findAll({
+    order: [
+      ["lastName", "ASC"],
+      ["firstName", "ASC"],
+    ],
+  });
+  const rows = [
+    ["First name", "Last name", "Email", "Phone", "Type", "Stage", "Source", "Notes"],
+    ...contacts.map((contact) => [
+      contact.firstName,
+      contact.lastName,
+      contact.email,
+      contact.phone,
+      contact.type,
+      contact.stage,
+      contact.source,
+      contact.notes,
+    ]),
+  ];
+  const csv = `\ufeff${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
+  return c.body(csv, 200, {
+    "Content-Type": "text/csv; charset=utf-8",
+    "Content-Disposition": 'attachment; filename="contacts.csv"',
+  });
 });
 
 // POST /api/contacts/import — one all-or-nothing batch from a phone vCard or
@@ -226,7 +273,7 @@ app.post("/import", async (c) => {
     );
     const phones = new Set(
       existing
-        .map((contact) => normalizePhone(contact.phone))
+        .map((contact) => normalizePhoneNumber(contact.phone))
         .filter((value): value is string => value !== null)
     );
     const names = new Set(
@@ -242,7 +289,7 @@ app.post("/import", async (c) => {
 
     for (const contact of contactImport.contacts) {
       const email = normalizeEmail(contact.email);
-      const phone = normalizePhone(contact.phone);
+      const phone = normalizePhoneNumber(contact.phone);
       const name = normalizeName(contact.firstName, contact.lastName);
       if (
         (email && emails.has(email)) ||
@@ -288,6 +335,7 @@ app.get("/:id", async (c) => {
 app.post("/", async (c) => {
   const values = pickFields(await c.req.json(), WRITABLE);
   requireFields(values, REQUIRED_ON_CREATE);
+  normalizeContactValues(values);
   const contact = await Contact.create(values as never);
   return c.json({ contact }, 201);
 });
@@ -296,6 +344,7 @@ app.patch("/:id", async (c) => {
   const id = requireUuid(c.req.param("id"));
   const values = pickFields(await c.req.json(), WRITABLE);
   requireNonEmpty(values);
+  normalizeContactValues(values);
 
   const contact = await Contact.findByPk(id);
   if (!contact) throw apiError(404, "contact_not_found");

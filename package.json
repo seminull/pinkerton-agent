@@ -13,6 +13,7 @@
   "dependencies": {
     "@hono/node-server": "^2.0.12",
     "hono": "^4.12.23",
+    "libphonenumber-js": "^1.13.16",
     "pg": "^8.21.0",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.8"

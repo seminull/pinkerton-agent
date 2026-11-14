@@ -14,10 +14,15 @@ module.exports = (sequelize, DataTypes) => {
       },
       firstName: { type: DataTypes.STRING, allowNull: false },
       lastName: { type: DataTypes.STRING, allowNull: false },
-      // Nullable and deliberately not unique: agents routinely have a phone
-      // number and nothing else for a fresh lead, and spouses share addresses.
+      // Email and phone are nullable and deliberately not unique: agents
+      // routinely have one number for a household rather than per individual.
       email: { type: DataTypes.STRING },
-      phone: { type: DataTypes.STRING },
+      // E.164 is the storage/export representation; the UI formats it for
+      // reading. The database migration adds the matching CHECK constraint.
+      phone: {
+        type: DataTypes.STRING(16),
+        validate: { is: /^\+[1-9]\d{7,14}$/ },
+      },
       type: {
         type: DataTypes.ENUM('buyer', 'seller', 'both'),
         allowNull: false,

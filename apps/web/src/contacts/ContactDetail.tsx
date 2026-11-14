@@ -17,6 +17,7 @@ import { Link, useParams } from "react-router";
 import { CONTACT_STAGE_COLORS, LISTING_STATUS_COLORS } from "../theme";
 import { formatDate, formatPriceCents, humanize } from "../format";
 import PageStack from "../motion/PageStack";
+import { formatContactPhone } from "../phone";
 import { useContact } from "./queries";
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -98,7 +99,7 @@ export default function ContactDetail() {
             <Field label="Email" value={contact.email ?? "—"} />
           </Grid.Col>
           <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-            <Field label="Phone" value={contact.phone ?? "—"} />
+            <Field label="Phone" value={formatContactPhone(contact.phone)} />
           </Grid.Col>
           <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
             <Field label="Source" value={contact.source ?? "—"} />

@@ -2,6 +2,7 @@ import {
   Button,
   Group,
   Modal,
+  PhoneInput,
   Select,
   Stack,
   Textarea,
@@ -11,6 +12,7 @@ import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { ApiError } from "../api/client";
 import type { Contact, ContactStage, ContactType } from "../api/types";
+import { isContactPhoneValid } from "../phone";
 import { useCreateContact, useUpdateContact, type ContactInput } from "./queries";
 
 const TYPE_OPTIONS: { value: ContactType; label: string }[] = [
@@ -61,6 +63,8 @@ export default function ContactFormModal({ opened, onClose, contact }: Props) {
       // field is optional anyway — the API is the authority.
       email: (value) =>
         !value || value.includes("@") ? null : "Doesn't look like an email address",
+      phone: (value) =>
+        isContactPhoneValid(value) ? null : "Enter a valid phone number",
     },
   });
 
@@ -118,7 +122,14 @@ export default function ContactFormModal({ opened, onClose, contact }: Props) {
           </Group>
           <Group grow>
             <TextInput label="Email" {...form.getInputProps("email")} />
-            <TextInput label="Phone" {...form.getInputProps("phone")} />
+            <PhoneInput
+              label="Phone"
+              defaultCountry="us"
+              preferredCountries={["us", "ca", "mx"]}
+              withCountryAutoDetect
+              withChevron
+              {...form.getInputProps("phone")}
+            />
           </Group>
           <Group grow>
             <Select

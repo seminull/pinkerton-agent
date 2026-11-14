@@ -13,6 +13,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconAddressBook, IconUpload } from "@tabler/icons-react";
 import { ApiError } from "../api/client";
+import { formatContactPhone } from "../phone";
 import { parseMatrixCsv, type MatrixCsvContact } from "./matrixCsv";
 import { useImportContacts } from "./queries";
 
@@ -230,7 +231,7 @@ export default function ImportMatrixCsvModal({
                         {contact.firstName} {contact.lastName}
                       </Table.Td>
                       <Table.Td>{contact.email ?? "—"}</Table.Td>
-                      <Table.Td>{contact.phone ?? "—"}</Table.Td>
+                      <Table.Td>{formatContactPhone(contact.phone)}</Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>

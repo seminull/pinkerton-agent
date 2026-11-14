@@ -17,6 +17,7 @@ export interface Contact {
   firstName: string;
   lastName: string;
   email: string | null;
+  /** Canonical E.164; format for display at the UI boundary. */
   phone: string | null;
   type: ContactType;
   stage: ContactStage;

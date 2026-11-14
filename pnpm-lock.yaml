@@ -15,6 +15,9 @@ importers:
       hono:
         specifier: ^4.12.23
         version: 4.12.32
+      libphonenumber-js:
+        specifier: ^1.13.16
+        version: 1.13.16
       pg:
         specifier: ^8.21.0
         version: 8.22.0
@@ -44,26 +47,26 @@ importers:
   apps/web:
     dependencies:
       '@mantine/charts':
-        specifier: 9.4.2
-        version: 9.4.2(@mantine/core@9.4.2(@mantine/hooks@9.4.2(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.4.2(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(recharts@3.10.1(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react-is@16.13.1)(react@19.2.8)(redux@5.0.1))
+        specifier: 9.8.0
+        version: 9.8.0(@mantine/core@9.8.0(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.8.0(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(recharts@3.10.1(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react-is@16.13.1)(react@19.2.8)(redux@5.0.1))
       '@mantine/core':
-        specifier: ^9.4.2
-        version: 9.4.2(@mantine/hooks@9.4.2(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 9.8.0
+        version: 9.8.0(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@mantine/dates':
-        specifier: ^9.4.2
-        version: 9.4.2(@mantine/core@9.4.2(@mantine/hooks@9.4.2(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.4.2(react@19.2.8))(dayjs@1.11.21)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 9.8.0
+        version: 9.8.0(@mantine/core@9.8.0(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.8.0(react@19.2.8))(dayjs@1.11.21)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@mantine/dropzone':
-        specifier: 9.4.2
-        version: 9.4.2(@mantine/core@9.4.2(@mantine/hooks@9.4.2(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.4.2(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 9.8.0
+        version: 9.8.0(@mantine/core@9.8.0(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@mantine/form':
-        specifier: ^9.4.2
-        version: 9.4.2(react@19.2.8)
+        specifier: 9.8.0
+        version: 9.8.0(react@19.2.8)
       '@mantine/hooks':
-        specifier: ^9.4.2
-        version: 9.4.2(react@19.2.8)
+        specifier: 9.8.0
+        version: 9.8.0(react@19.2.8)
       '@mantine/notifications':
-        specifier: ^9.4.2
-        version: 9.4.2(@mantine/core@9.4.2(@mantine/hooks@9.4.2(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.4.2(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 9.8.0
+        version: 9.8.0(@mantine/core@9.8.0(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.8.0(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@tabler/icons-react':
         specifier: ^3.44.0
         version: 3.45.0(react@19.2.8)
@@ -73,6 +76,9 @@ importers:
       dayjs:
         specifier: ^1.11.13
         version: 1.11.21
+      libphonenumber-js:
+        specifier: ^1.13.16
+        version: 1.13.16
       motion:
         specifier: ^14.12.0
         version: 14.12.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -479,59 +485,60 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@mantine/charts@9.4.2':
-    resolution: {integrity: sha512-TGS6D517wyyiisFVZFJCnFiO+Ngi8HnF8R22SsNhH2qPhGx/VlLgvVtXPYRuICDX7xEvOOouelVzCnw/+Qb+wQ==}
+  '@mantine/charts@9.8.0':
+    resolution: {integrity: sha512-xgUiUcO+c3xKb9qG/5ut3Md7yhBrNUMdzWQUsb73dKGQ0h7zFT2FVR2soC1CXLXsQvjcY/cAkUa7QEx6IiHgUg==}
     peerDependencies:
-      '@mantine/core': 9.4.2
-      '@mantine/hooks': 9.4.2
+      '@mantine/core': 9.8.0
+      '@mantine/hooks': 9.8.0
       react: ^19.2.0
       react-dom: ^19.2.0
       recharts: '>=3.2.1'
 
-  '@mantine/core@9.4.2':
-    resolution: {integrity: sha512-bEcFalEvbcT8x03GF0eUeWVLF8lGADdfG8jjrPfn+JdK4Sd33ZFdvTZxY/hhkzRi/JsMdhZj8GU0cGkXc0yPzg==}
+  '@mantine/core@9.8.0':
+    resolution: {integrity: sha512-+2Y+GBM6WvBJgBBb7hrfEvHbyljuRsOqC1GjxNpmX6NcD2SwmDXf9ZVFfquyXvi8fFerMrTpAwYdfb6k2PGAlQ==}
     peerDependencies:
-      '@mantine/hooks': 9.4.2
+      '@mantine/hooks': 9.8.0
       react: ^19.2.0
       react-dom: ^19.2.0
 
-  '@mantine/dates@9.4.2':
-    resolution: {integrity: sha512-Tm5EbrrsBh5rQr2fvMbg/AEOat+YanO9vueVDoqkHZ537rl1n+eJdwbT6wxauCt6oNO5TxP+nssXqhk3e5NMgw==}
+  '@mantine/dates@9.8.0':
+    resolution: {integrity: sha512-mHmr0uNJI888M0gU7Ga0ec6CtUurQDPst4WauEEqjgkb7uGxAHknL2XdmFshjqQ4UyTLKrsjVeK5DIhzofz/gg==}
     peerDependencies:
-      '@mantine/core': 9.4.2
-      '@mantine/hooks': 9.4.2
+      '@mantine/core': 9.8.0
+      '@mantine/hooks': 9.8.0
       dayjs: '>=1.0.0'
       react: ^19.2.0
       react-dom: ^19.2.0
 
-  '@mantine/dropzone@9.4.2':
-    resolution: {integrity: sha512-cF/AIgjfkUIi39NxVxvrouQ7BZwvLinl05T3lium54yKAILGWXt/uBAGk3cjeJA165fxdQg8SJQSuWCCRHPvZg==}
+  '@mantine/dropzone@9.8.0':
+    resolution: {integrity: sha512-MG2K3RBXs38MvBjIasi8uq++bakbM5weH5Kks+aA9eIOmGot+prepn77H2OLxSZx1zeNiu5CMtI+Pn2LUz/KnQ==}
+    engines: {node: '>=22'}
     peerDependencies:
-      '@mantine/core': 9.4.2
-      '@mantine/hooks': 9.4.2
+      '@mantine/core': 9.8.0
+      '@mantine/hooks': 9.8.0
       react: ^19.2.0
       react-dom: ^19.2.0
 
-  '@mantine/form@9.4.2':
-    resolution: {integrity: sha512-rpj43qFQEhas/T5qD0fp2ErCNATV544BuHColyrkko/2UcVf57LUJ52N8KZxT3/mKTQmNqprOJReHrbc42Z59Q==}
+  '@mantine/form@9.8.0':
+    resolution: {integrity: sha512-ECed/ZR/uzCrhm8R5oT723l/Ft0AcM6RDfgwq3bXcK+3bJ9h4dSrr2GyIpwR9fjJ0dwM2JCl//IFFXP4QHlKrw==}
     peerDependencies:
       react: ^19.2.0
 
-  '@mantine/hooks@9.4.2':
-    resolution: {integrity: sha512-1SUuhnbvcV7EfwYN2FcdI9nX2TXhQQMefR7uWsigdor+2Twk0yEKMKct8t9gw6PQtkWF9GZxkg8aJRA3KmhaSA==}
+  '@mantine/hooks@9.8.0':
+    resolution: {integrity: sha512-fUA3PS8Ys2kih6VEuozgdEO0UyiGhryTJqx+Bf2lxee1XpXQ0XFXsQY7lNB4f+eBDzYCczYykQjIIuUzyJft7A==}
     peerDependencies:
       react: ^19.2.0
 
-  '@mantine/notifications@9.4.2':
-    resolution: {integrity: sha512-mun6pEiZq8Lq52h1TH0CbsEapidGXakIyqlGppXpzvOeBiYGH2NLhwd2QUnwKDmm1FuAzY0TGT7vGqNz1/b0oA==}
+  '@mantine/notifications@9.8.0':
+    resolution: {integrity: sha512-5+f1hQUa41UqC7z05kSYOU1uOrL6hpm/s7WzPmeHsfxbcb8xFefFi0I/9RZZ5KNgkCdt0LpfO4N4KNfiTmi0OQ==}
     peerDependencies:
-      '@mantine/core': 9.4.2
-      '@mantine/hooks': 9.4.2
+      '@mantine/core': 9.8.0
+      '@mantine/hooks': 9.8.0
       react: ^19.2.0
       react-dom: ^19.2.0
 
-  '@mantine/store@9.4.2':
-    resolution: {integrity: sha512-vUxo4sg+UzUbvoG5VcwLvfF9XaOcruh2LsyZA4M361YlvDU/WNFeKcByjlxiz+FMZdJK5kyUFuajhEMmYCIIiw==}
+  '@mantine/store@9.8.0':
+    resolution: {integrity: sha512-1lXf+ULBFLnMTN+cN4rCNxaBIRAUEPGm2uplLtNk0WHpvL+UwSuXZc26S5tdjYUW5HYsLLeY6C3u/N5qLv1r1Q==}
     peerDependencies:
       react: ^19.2.0
 
@@ -856,9 +863,9 @@ packages:
     resolution: {integrity: sha512-+q/t7Ekv1EDY2l6Gda6LLiX14rU9TV20Wa3ofeQmwPFZbOMo9DXrLbOjFaaclkXKWidIaopwAObQDqwWtGUjqg==}
     engines: {node: '>= 4.0.0'}
 
-  attr-accept@2.2.5:
-    resolution: {integrity: sha512-0bDNnY/u6pPwHDMoF0FieU354oBi0a8rD9FcsLwzcGWbc8KS8KPIi7y+s13OlVY+gMWc/9xEMUgNE6Qm8ZllYQ==}
-    engines: {node: '>=4'}
+  attr-accept@4.0.1:
+    resolution: {integrity: sha512-rOKAGOwbnTUvwTL8rNA0hWnU3uX9tOI20di4KjR5I1ez/RJmnA37W3zz4EMxGC2YnI289yPjRy63CdAZeQFZ4Q==}
+    engines: {node: '>= 22'}
 
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
@@ -1138,9 +1145,9 @@ packages:
     resolution: {integrity: sha512-XXTUwCvisa5oacNGRP9SfNtYBNAMi+RPwBFmblZEF7N7swHYQS6/Zfk7SRwx4D5j3CH211YNRco1DEMNVfZCnQ==}
     engines: {node: '>=16.0.0'}
 
-  file-selector@2.1.2:
-    resolution: {integrity: sha512-QgXo+mXTe8ljeqUFaX3QVHc5osSItJ/Km+xpocx0aSqWGMSCf6qYs/VnzZgS864Pjn5iceMRFigeAV7AfTlaig==}
-    engines: {node: '>= 12'}
+  file-selector@5.0.2:
+    resolution: {integrity: sha512-1hAy178VaMCWWj/vSUITOTpLWH1PoGW3eO7i3kPIppuSyOHBm3o1cHq+CvKAM5hQKQXlazrDt/3K1HCXgs7MpQ==}
+    engines: {node: '>= 22'}
 
   find-up@5.0.0:
     resolution: {integrity: sha512-78/PXT1wlLLDgTzDs7sjq9hzz0vXD+zn+7wypEe4fXQxCmdmqfGsEPQxmiCSQI3ajFV91bVSsvNtrJRiW6nGng==}
@@ -1320,6 +1327,9 @@ packages:
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
     engines: {node: '>= 0.8.0'}
+
+  libphonenumber-js@1.13.16:
+    resolution: {integrity: sha512-tIOCM9yx2Go6d5/ZANe0K+G4AZek1Ymx81HxQpf19Sri4zMP95eQbKdnUGHAvFQ4nx0PeLhFqvAfisTADXj3tQ==}
 
   lightningcss-android-arm64@1.33.0:
     resolution: {integrity: sha512-gEpRTalKdosp4Bb8qWtc2iOgE5SeIHlpS1up9bFq2wAyYhl1UdTObYiHe98zEM9SQvSoqQZ1IQD0JNpg3Ml5pg==}
@@ -1621,11 +1631,15 @@ packages:
     peerDependencies:
       react: ^19.2.8
 
-  react-dropzone@15.0.0:
-    resolution: {integrity: sha512-lGjYV/EoqEjEWPnmiSvH4v5IoIAwQM2W4Z1C0Q/Pw2xD0eVzKPS359BQTUMum+1fa0kH2nrKjuavmTPOGhpLPg==}
-    engines: {node: '>= 10.13'}
+  react-dropzone@20.1.4:
+    resolution: {integrity: sha512-LyjT9iQySNkJGC6yL+XTlmfTRxHhPx0eSoTh+WlR0Ge+W35rLcRH/oH7w5bzijfPHeCFcLnO9G7i+hX+LINAAA==}
+    engines: {node: '>= 22'}
     peerDependencies:
-      react: '>= 16.8 || 18.0.0'
+      '@types/react': '*'
+      react: '>= 18'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
 
   react-is@16.13.1:
     resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
@@ -1891,8 +1905,8 @@ packages:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
 
-  type-fest@5.8.0:
-    resolution: {integrity: sha512-YGYEVz3Fm5iy/AybuA0oyNFq7H4CgQNfRp/qfe8nurE1kuCeNm3/vfm9X4Mtl+qLyaKJUh5xrFZwogr41SMjYA==}
+  type-fest@5.10.0:
+    resolution: {integrity: sha512-NoSdpq/WEiAg5sjmBkmV/hfxv6HJH4NqPNrqjtSO5CwRmpsDfaf4begxW34KdJykH/l1yHtwBWQkCRdoXO8mPA==}
     engines: {node: '>=20'}
 
   typescript-eslint@8.65.0:
@@ -2392,65 +2406,67 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@mantine/charts@9.4.2(@mantine/core@9.4.2(@mantine/hooks@9.4.2(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.4.2(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(recharts@3.10.1(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react-is@16.13.1)(react@19.2.8)(redux@5.0.1))':
+  '@mantine/charts@9.8.0(@mantine/core@9.8.0(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.8.0(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(recharts@3.10.1(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react-is@16.13.1)(react@19.2.8)(redux@5.0.1))':
     dependencies:
-      '@mantine/core': 9.4.2(@mantine/hooks@9.4.2(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@mantine/hooks': 9.4.2(react@19.2.8)
+      '@mantine/core': 9.8.0(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@mantine/hooks': 9.8.0(react@19.2.8)
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
       recharts: 3.10.1(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react-is@16.13.1)(react@19.2.8)(redux@5.0.1)
 
-  '@mantine/core@9.4.2(@mantine/hooks@9.4.2(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@mantine/core@9.8.0(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@floating-ui/react': 0.27.20(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@mantine/hooks': 9.4.2(react@19.2.8)
+      '@mantine/hooks': 9.8.0(react@19.2.8)
       clsx: 2.1.1
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
       react-number-format: 5.4.5(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react-remove-scroll: 2.7.2(@types/react@19.2.17)(react@19.2.8)
-      type-fest: 5.8.0
+      type-fest: 5.10.0
     transitivePeerDependencies:
       - '@types/react'
 
-  '@mantine/dates@9.4.2(@mantine/core@9.4.2(@mantine/hooks@9.4.2(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.4.2(react@19.2.8))(dayjs@1.11.21)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@mantine/dates@9.8.0(@mantine/core@9.8.0(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.8.0(react@19.2.8))(dayjs@1.11.21)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@mantine/core': 9.4.2(@mantine/hooks@9.4.2(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@mantine/hooks': 9.4.2(react@19.2.8)
+      '@mantine/core': 9.8.0(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@mantine/hooks': 9.8.0(react@19.2.8)
       clsx: 2.1.1
       dayjs: 1.11.21
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
 
-  '@mantine/dropzone@9.4.2(@mantine/core@9.4.2(@mantine/hooks@9.4.2(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.4.2(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@mantine/dropzone@9.8.0(@mantine/core@9.8.0(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@mantine/core': 9.4.2(@mantine/hooks@9.4.2(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@mantine/hooks': 9.4.2(react@19.2.8)
+      '@mantine/core': 9.8.0(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@mantine/hooks': 9.8.0(react@19.2.8)
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
-      react-dropzone: 15.0.0(react@19.2.8)
+      react-dropzone: 20.1.4(@types/react@19.2.17)(react@19.2.8)
+    transitivePeerDependencies:
+      - '@types/react'
 
-  '@mantine/form@9.4.2(react@19.2.8)':
+  '@mantine/form@9.8.0(react@19.2.8)':
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-deep-equal: 3.1.3
       klona: 2.0.6
       react: 19.2.8
 
-  '@mantine/hooks@9.4.2(react@19.2.8)':
+  '@mantine/hooks@9.8.0(react@19.2.8)':
     dependencies:
       react: 19.2.8
 
-  '@mantine/notifications@9.4.2(@mantine/core@9.4.2(@mantine/hooks@9.4.2(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.4.2(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@mantine/notifications@9.8.0(@mantine/core@9.8.0(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.8.0(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@mantine/core': 9.4.2(@mantine/hooks@9.4.2(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@mantine/hooks': 9.4.2(react@19.2.8)
-      '@mantine/store': 9.4.2(react@19.2.8)
+      '@mantine/core': 9.8.0(@mantine/hooks@9.8.0(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@mantine/hooks': 9.8.0(react@19.2.8)
+      '@mantine/store': 9.8.0(react@19.2.8)
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
       react-transition-group: 4.4.5(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
 
-  '@mantine/store@9.4.2(react@19.2.8)':
+  '@mantine/store@9.8.0(react@19.2.8)':
     dependencies:
       react: 19.2.8
 
@@ -2730,7 +2746,7 @@ snapshots:
 
   at-least-node@1.0.0: {}
 
-  attr-accept@2.2.5: {}
+  attr-accept@4.0.1: {}
 
   balanced-match@1.0.2: {}
 
@@ -3023,9 +3039,7 @@ snapshots:
     dependencies:
       flat-cache: 4.0.1
 
-  file-selector@2.1.2:
-    dependencies:
-      tslib: 2.8.1
+  file-selector@5.0.2: {}
 
   find-up@5.0.0:
     dependencies:
@@ -3174,6 +3188,8 @@ snapshots:
     dependencies:
       prelude-ls: 1.2.1
       type-check: 0.4.0
+
+  libphonenumber-js@1.13.16: {}
 
   lightningcss-android-arm64@1.33.0:
     optional: true
@@ -3423,12 +3439,13 @@ snapshots:
       react: 19.2.8
       scheduler: 0.27.0
 
-  react-dropzone@15.0.0(react@19.2.8):
+  react-dropzone@20.1.4(@types/react@19.2.17)(react@19.2.8):
     dependencies:
-      attr-accept: 2.2.5
-      file-selector: 2.1.2
-      prop-types: 15.8.1
+      attr-accept: 4.0.1
+      file-selector: 5.0.2
       react: 19.2.8
+    optionalDependencies:
+      '@types/react': 19.2.17
 
   react-is@16.13.1: {}
 
@@ -3679,7 +3696,7 @@ snapshots:
     dependencies:
       prelude-ls: 1.2.1
 
-  type-fest@5.8.0:
+  type-fest@5.10.0:
     dependencies:
       tagged-tag: 1.0.0
 

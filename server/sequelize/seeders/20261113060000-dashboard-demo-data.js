@@ -116,7 +116,7 @@ const buildRows = (now) => {
       firstName,
       lastName,
       email: `${firstName}.${lastName}.${n}@example.com`.toLowerCase(),
-      phone: `${pick(random, ['214', '469', '972'])}-555-${String(1000 + n).slice(-4)}`,
+      phone: `+1${pick(random, ['214', '469', '972'])}555${String(1000 + n).slice(-4)}`,
       type: weighted(random, [['buyer', 55], ['seller', 25], ['both', 20]]),
       stage,
       source,

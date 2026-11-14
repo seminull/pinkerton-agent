@@ -9,6 +9,7 @@ export interface ContactAttributes {
   firstName: string;
   lastName: string;
   email: string | null;
+  /** Canonical E.164, for example +12145550123. */
   phone: string | null;
   /** buyer | seller | both — which side of a transaction this person is on. */
   type: string;

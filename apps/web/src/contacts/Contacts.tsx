@@ -18,6 +18,7 @@ import {
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import {
+  IconDownload,
   IconFileImport,
   IconPencil,
   IconPlus,
@@ -28,6 +29,7 @@ import type { Contact, ContactStage, ContactType } from "../api/types";
 import { CONTACT_STAGE_COLORS } from "../theme";
 import { humanize } from "../format";
 import PageStack from "../motion/PageStack";
+import { formatContactPhone } from "../phone";
 import ContactFormModal from "./ContactFormModal";
 import ImportContactsModal from "./ImportContactsModal";
 import ImportMatrixCsvModal from "./ImportMatrixCsvModal";
@@ -88,6 +90,15 @@ export default function Contacts() {
       <Group justify="space-between">
         <Title order={2}>Contacts</Title>
         <Group gap="sm">
+          <Button
+            component="a"
+            href="/api/contacts/export.csv"
+            download
+            variant="light"
+            leftSection={<IconDownload size={16} />}
+          >
+            Export CSV
+          </Button>
           <Button
             variant="light"
             leftSection={<IconFileImport size={16} />}
@@ -205,7 +216,7 @@ export default function Contacts() {
                       <Text size="sm">{contact.email ?? "—"}</Text>
                     </Table.Td>
                     <Table.Td>
-                      <Text size="sm">{contact.phone ?? "—"}</Text>
+                      <Text size="sm">{formatContactPhone(contact.phone)}</Text>
                     </Table.Td>
                     <Table.Td>
                       <Text size="sm" c="dimmed">

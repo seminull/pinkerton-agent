@@ -12,6 +12,7 @@ import {
   Image,
   Loader,
   Modal,
+  ScrollArea,
   SimpleGrid,
   Stack,
   Text,
@@ -323,28 +324,35 @@ export default function ListingDetail() {
                         Add photos
                       </Button>
                     </Group>
-                    <SimpleGrid cols={{ base: 2, sm: 3 }} spacing={4} p={4}>
-                      {photosQuery.data.photos.map((photo, index) => {
-                        const photoUrl = listingPhotoUrl(listing.id, photo.id);
-                        return (
-                          <UnstyledButton
-                            key={photo.id}
-                            w="100%"
-                            display="block"
-                            aria-label={`View ${photo.originalName} full screen`}
-                            style={{ cursor: "zoom-in", pointerEvents: "all" }}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setPhotoIndex(index);
-                            }}
-                          >
-                            <AspectRatio ratio={4 / 3}>
-                              <Image src={photoUrl} alt={photo.originalName} fit="cover" />
-                            </AspectRatio>
-                          </UnstyledButton>
-                        );
-                      })}
-                    </SimpleGrid>
+                    <ScrollArea
+                      h={{ base: 320, sm: 480 }}
+                      type="auto"
+                      offsetScrollbars
+                      scrollbarSize={8}
+                    >
+                      <SimpleGrid cols={{ base: 2, sm: 3 }} spacing={4} p={4}>
+                        {photosQuery.data.photos.map((photo, index) => {
+                          const photoUrl = listingPhotoUrl(listing.id, photo.id);
+                          return (
+                            <UnstyledButton
+                              key={photo.id}
+                              w="100%"
+                              display="block"
+                              aria-label={`View ${photo.originalName} full screen`}
+                              style={{ cursor: "zoom-in", pointerEvents: "all" }}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setPhotoIndex(index);
+                              }}
+                            >
+                              <AspectRatio ratio={4 / 3}>
+                                <Image src={photoUrl} alt={photo.originalName} fit="cover" />
+                              </AspectRatio>
+                            </UnstyledButton>
+                          );
+                        })}
+                      </SimpleGrid>
+                    </ScrollArea>
                   </Stack>
                 )}
               </Dropzone.Idle>

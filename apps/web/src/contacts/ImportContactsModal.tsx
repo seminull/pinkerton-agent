@@ -13,6 +13,7 @@ import {
 import { notifications } from "@mantine/notifications";
 import { IconAddressBook, IconUpload } from "@tabler/icons-react";
 import { ApiError } from "../api/client";
+import { formatContactPhone } from "../phone";
 import { useImportContacts } from "./queries";
 import { parseVCards, type VCardContact } from "./vcard";
 
@@ -234,7 +235,7 @@ export default function ImportContactsModal({
                         {contact.firstName} {contact.lastName}
                       </Table.Td>
                       <Table.Td>{contact.email ?? "—"}</Table.Td>
-                      <Table.Td>{contact.phone ?? "—"}</Table.Td>
+                      <Table.Td>{formatContactPhone(contact.phone)}</Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
